@@ -75,7 +75,9 @@ async def receive_message(payload: IncomingMessage, db: Session = Depends(get_db
 
     ticket_id: int | None = None
 
-    if result.is_complaint:
+    CONFIDENCE_THRESHOLD = 0.7
+
+    if result.is_complaint and result.confidence > CONFIDENCE_THRESHOLD:
         priority = _PRIORITY_MAP.get(result.priority, TicketPriority.MEDIUM)
         ticket = Ticket(
             message_text=payload.message_text,
@@ -94,19 +96,21 @@ async def receive_message(payload: IncomingMessage, db: Session = Depends(get_db
             "Ticket #%d created — category=%s priority=%s confidence=%.2f",
             ticket_id, result.category, result.priority, result.confidence,
         )
+        message = "Complaint received and ticket created"
     else:
         db.commit()
-        logger.info(
-            "Non-complaint message ignored — sender=%s confidence=%.2f",
-            payload.sender, result.confidence,
-        )
+        if not result.is_complaint:
+            reason = "message is not a complaint"
+        else:
+            reason = f"confidence {result.confidence:.2f} is below threshold {CONFIDENCE_THRESHOLD}"
+        logger.info("Message ignored (%s) — sender=%s", reason, payload.sender)
+        message = f"Message ignored — {reason}"
 
     return WebhookResponse(
         ticket_id=ticket_id,
         is_complaint=result.is_complaint,
         classification=classification,
-        message="Complaint received and ticket created" if result.is_complaint
-                else "Message received but not classified as a complaint — no ticket created",
+        message=message,
     )
 
 
