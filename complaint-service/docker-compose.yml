@@ -30,8 +30,15 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       SQL_ECHO: ${SQL_ECHO:-false}
       CORS_ORIGINS: ${CORS_ORIGINS:-*}
-      GROQ_API_KEY: ${GROQ_API_KEY:-}           # leave blank to use keyword classifier
+      # GROQ AI classifier
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
       GROQ_MODEL: ${GROQ_MODEL:-llama3-8b-8192}
+      # OpenClaw integration
+      OPENCLAW_API_URL: ${OPENCLAW_API_URL:-https://api.openclaw.io}
+      OPENCLAW_API_KEY: ${OPENCLAW_API_KEY:-}
+      OPENCLAW_TIMEOUT: ${OPENCLAW_TIMEOUT:-10}
+      # Group filtering (* = all groups allowed)
+      ALLOWED_GROUPS: ${ALLOWED_GROUPS:-*}
     volumes:
       - sqlite_data:/app/data               # persistent SQLite database
     healthcheck:

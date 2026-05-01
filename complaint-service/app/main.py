@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import init_db
-from app.routers import webhooks, tickets, supervisor, reports
+from app.routers import webhooks, tickets, supervisor, reports, openclaw
 
 logging.basicConfig(
     level=os.getenv("LOG_LEVEL", "INFO").upper(),
@@ -48,6 +48,7 @@ app.include_router(webhooks.router)
 app.include_router(tickets.router)
 app.include_router(supervisor.router)
 app.include_router(reports.router)
+app.include_router(openclaw.router)
 
 
 @app.get("/health", tags=["Health"])
