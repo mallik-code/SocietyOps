@@ -41,6 +41,7 @@ from app.services.ai_classifier import classify_complaint, ClassificationResult
 from app.services.group_filter import is_group_allowed, allowed_groups_list
 from app.services.openclaw_client import get_openclaw_client
 from app.services.response_generator import generate_whatsapp_reply, generate_ignored_reply
+from app.services.supervisor_parser import is_supervisor_command, process_supervisor_reply
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/openclaw", tags=["OpenClaw"])
@@ -155,6 +156,23 @@ async def handle_openclaw_event(
     )
     db.add(log)
     db.flush()
+
+    # ── 3b. Supervisor command check (runs before AI classifier) ─────────────
+    # Pattern: "<ticket_id> <action>", e.g. "123 resolved", "45 started"
+    if is_supervisor_command(message_text):
+        logger.info("OpenClaw: supervisor command detected from %s", sender_id)
+        sv_result = process_supervisor_reply(message_text, db)
+        reply_sent = False
+        if group_id:
+            client = get_openclaw_client()
+            reply_sent = await client.send_message(group_id, sv_result.confirmation)
+        return OpenClawEventResponse(
+            status="supervisor_action",
+            ticket_id=sv_result.ticket_id,
+            whatsapp_reply=sv_result.confirmation,
+            reply_sent=reply_sent,
+            reason=f"action={sv_result.action.value if sv_result.action else None} success={sv_result.success}",
+        )
 
     # ── 4. Classify ──────────────────────────────────────────────────────────
     try:
