@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import init_db
 from app.routers import webhooks, tickets, supervisor, reports, openclaw
+from app.services.scheduler import create_scheduler
 
 logging.basicConfig(
     level=os.getenv("LOG_LEVEL", "INFO").upper(),
@@ -20,7 +21,15 @@ async def lifespan(app: FastAPI):
     logger.info("Initialising database …")
     init_db()
     logger.info("Database ready.")
+
+    scheduler = create_scheduler()
+    scheduler.start()
+    logger.info("Scheduler started.")
+
     yield
+
+    scheduler.shutdown(wait=False)
+    logger.info("Scheduler stopped.")
     logger.info("Shutting down.")
 
 

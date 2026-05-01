@@ -37,6 +37,11 @@ services:
       OPENCLAW_API_URL: ${OPENCLAW_API_URL:-https://api.openclaw.io}
       OPENCLAW_API_KEY: ${OPENCLAW_API_KEY:-}
       OPENCLAW_TIMEOUT: ${OPENCLAW_TIMEOUT:-10}
+      # Daily report scheduler
+      REPORT_GROUP_ID: ${REPORT_GROUP_ID:-}
+      REPORT_CRON_HOUR: ${REPORT_CRON_HOUR:-20}
+      REPORT_CRON_MINUTE: ${REPORT_CRON_MINUTE:-0}
+      REPORT_TIMEZONE: ${REPORT_TIMEZONE:-Asia/Karachi}
       # Group filtering (* = all groups allowed)
       ALLOWED_GROUPS: ${ALLOWED_GROUPS:-*}
     volumes:
