@@ -16,6 +16,7 @@ from app.schemas import (
     ClassifyRequest,
 )
 from app.services.ai_classifier import classify_complaint
+from app.services.response_generator import generate_whatsapp_reply, generate_ignored_reply
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/webhook", tags=["Webhook"])
@@ -77,6 +78,8 @@ async def receive_message(payload: IncomingMessage, db: Session = Depends(get_db
 
     CONFIDENCE_THRESHOLD = 0.7
 
+    whatsapp_reply: str
+
     if result.is_complaint and result.confidence > CONFIDENCE_THRESHOLD:
         priority = _PRIORITY_MAP.get(result.priority, TicketPriority.MEDIUM)
         ticket = Ticket(
@@ -92,6 +95,7 @@ async def receive_message(payload: IncomingMessage, db: Session = Depends(get_db
         db.commit()
         db.refresh(ticket)
         ticket_id = ticket.id
+        whatsapp_reply = generate_whatsapp_reply(ticket)
         logger.info(
             "Ticket #%d created — category=%s priority=%s confidence=%.2f",
             ticket_id, result.category, result.priority, result.confidence,
@@ -105,12 +109,14 @@ async def receive_message(payload: IncomingMessage, db: Session = Depends(get_db
             reason = f"confidence {result.confidence:.2f} is below threshold {CONFIDENCE_THRESHOLD}"
         logger.info("Message ignored (%s) — sender=%s", reason, payload.sender)
         message = f"Message ignored — {reason}"
+        whatsapp_reply = generate_ignored_reply()
 
     return WebhookResponse(
         ticket_id=ticket_id,
         is_complaint=result.is_complaint,
         classification=classification,
         message=message,
+        whatsapp_reply=whatsapp_reply,
     )
 
 

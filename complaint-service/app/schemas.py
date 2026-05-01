@@ -95,6 +95,7 @@ class WebhookResponse(BaseModel):
     is_complaint: bool
     classification: ClassificationResponse
     message: str
+    whatsapp_reply: str = Field(..., description="Ready-to-send WhatsApp reply string")
 
 
 # ─── Report schemas ────────────────────────────────────────────────────────────
