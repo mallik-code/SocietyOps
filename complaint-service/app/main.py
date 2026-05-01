@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import init_db
-from app.routers import webhooks, tickets, supervisor, reports, openclaw
+from app.routers import webhooks, tickets, supervisor, reports, openclaw, policy
 from app.services.scheduler import create_scheduler
 
 logging.basicConfig(
@@ -58,6 +58,7 @@ app.include_router(tickets.router)
 app.include_router(supervisor.router)
 app.include_router(reports.router)
 app.include_router(openclaw.router)
+app.include_router(policy.router)
 
 
 @app.get("/health", tags=["Health"])

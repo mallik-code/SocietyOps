@@ -2,12 +2,17 @@
 OpenClaw webhook handler.
 
 OpenClaw calls POST /openclaw/events for every WhatsApp message event.
-This router:
-  1. Validates the event type (only "message" events are processed).
-  2. Applies group filtering — ignores messages from non-allowed groups.
-  3. Extracts text, sender, and group from the payload.
-  4. Runs the full complaint pipeline (log → classify → optionally create ticket).
-  5. Sends the generated WhatsApp reply back to the same group via OpenClaw API.
+
+Flow:
+  1. Ignore non-message events.
+  2. Extract text / sender / group.
+  3. Policy Engine — Phase 1 (inbound): group filter, sender filter, length, keywords.
+  4. Log raw message.
+  5. Supervisor command detection (bypasses AI and policy Phase 2).
+  6. AI classification.
+  7. Policy Engine — Phase 2 (post-classification): complaint check, confidence threshold.
+  8. Conditionally create ticket.
+  9. Conditionally send WhatsApp reply (suppressed in READ_ONLY mode).
 
 Expected OpenClaw webhook payload shape:
 {
@@ -15,22 +20,16 @@ Expected OpenClaw webhook payload shape:
   "data": {
     "id": "msg_abc123",
     "text": "The lift on 3rd floor is broken urgently",
-    "from": {
-      "id": "92300123456@s.whatsapp.net",
-      "name": "Ahmed Ali"
-    },
-    "group": {
-      "id": "120363000000000001@g.us",
-      "name": "Block B Residents"
-    },
+    "from": { "id": "923001234567@s.whatsapp.net", "name": "Ahmed Ali" },
+    "group": { "id": "120363000000000001@g.us", "name": "Block B Residents" },
     "timestamp": "2025-01-15T10:30:00Z"
   }
 }
 """
 import logging
-from typing import Any, Dict, Optional
+from typing import Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -38,15 +37,18 @@ from app.database import get_db
 from app.models import MessageLog, Ticket, TicketStatus, TicketPriority
 from app.schemas import ClassificationResponse
 from app.services.ai_classifier import classify_complaint, ClassificationResult
-from app.services.group_filter import is_group_allowed, allowed_groups_list
 from app.services.openclaw_client import get_openclaw_client
+from app.services.policy_engine import (
+    evaluate_inbound,
+    evaluate_classification,
+    get_policy_config,
+    get_min_confidence,
+)
 from app.services.response_generator import generate_whatsapp_reply, generate_ignored_reply
 from app.services.supervisor_parser import is_supervisor_command, process_supervisor_reply
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/openclaw", tags=["OpenClaw"])
-
-CONFIDENCE_THRESHOLD = 0.7
 
 _PRIORITY_MAP = {
     "High": TicketPriority.HIGH,
@@ -55,7 +57,7 @@ _PRIORITY_MAP = {
 }
 
 
-# ─── Pydantic models for OpenClaw payload ─────────────────────────────────────
+# ─── Pydantic models ───────────────────────────────────────────────────────────
 
 class _Sender(BaseModel):
     id: Optional[str] = None
@@ -82,11 +84,10 @@ class OpenClawEvent(BaseModel):
     data: Optional[_MessageData] = None
 
 
-# ─── Response schema ───────────────────────────────────────────────────────────
-
 class OpenClawEventResponse(BaseModel):
     status: str
     reason: Optional[str] = None
+    policy_violations: list[str] = []
     ticket_id: Optional[int] = None
     is_complaint: Optional[bool] = None
     classification: Optional[ClassificationResponse] = None
@@ -94,7 +95,7 @@ class OpenClawEventResponse(BaseModel):
     reply_sent: Optional[bool] = None
 
 
-# ─── Handler ──────────────────────────────────────────────────────────────────
+# ─── Main handler ──────────────────────────────────────────────────────────────
 
 @router.post(
     "/events",
@@ -106,85 +107,67 @@ async def handle_openclaw_event(
     event: OpenClawEvent,
     db: Session = Depends(get_db),
 ):
-    """
-    Main OpenClaw integration endpoint.
-
-    Flow:
-      1. Ignore non-message events (delivery receipts, status updates, etc.).
-      2. Apply group allow-list filtering.
-      3. Extract message text / sender / group metadata.
-      4. Run complaint pipeline: log → AI classify → conditionally create ticket.
-      5. Send WhatsApp reply back to the originating group via OpenClaw API.
-    """
-
-    # ── 1. Event type gate ───────────────────────────────────────────────────
+    # ── 1. Event type gate ────────────────────────────────────────────────────
     if event.event != "message":
-        logger.debug("OpenClaw: ignoring non-message event '%s'", event.event)
-        return OpenClawEventResponse(status="ignored", reason=f"event type '{event.event}' not handled")
+        return OpenClawEventResponse(
+            status="ignored",
+            reason=f"event type '{event.event}' not handled",
+        )
 
     data = event.data
     if not data or not data.text or not data.text.strip():
         return OpenClawEventResponse(status="ignored", reason="empty message body")
 
     message_text = data.text.strip()
-    sender_id = data.from_.id if data.from_ else None
-    sender_name = data.from_.name if data.from_ else None
-    group_id = data.group.id if data.group else None
-    group_name = data.group.name if data.group else None
+    sender_id    = data.from_.id   if data.from_ else None
+    sender_name  = data.from_.name if data.from_ else None
+    group_id     = data.group.id   if data.group else None
+    group_name   = data.group.name if data.group else None
 
-    # ── 2. Group filter ──────────────────────────────────────────────────────
-    if not is_group_allowed(group_id, group_name):
-        logger.info(
-            "OpenClaw: message from group '%s' (%s) rejected by group filter",
-            group_name, group_id,
-        )
-        return OpenClawEventResponse(
-            status="ignored",
-            reason=f"group '{group_name or group_id}' is not in the allowed list",
-        )
-
-    logger.info(
-        "OpenClaw: processing message from %s in group '%s'",
-        sender_id, group_name,
-    )
-
-    # ── 3. Log raw message ───────────────────────────────────────────────────
-    log = MessageLog(
-        raw_message=message_text,
-        sender=sender_id,
+    # ── 2. Policy Phase 1 — inbound checks ───────────────────────────────────
+    inbound_decision = evaluate_inbound(
+        message_text=message_text,
+        group_id=group_id,
         group_name=group_name,
+        sender_id=sender_id,
     )
-    db.add(log)
+    if not inbound_decision.allow_processing:
+        return OpenClawEventResponse(
+            status="blocked",
+            reason=inbound_decision.reason,
+            policy_violations=inbound_decision.violations,
+        )
+
+    logger.info("OpenClaw: processing message from %s in group '%s'", sender_id, group_name)
+
+    # ── 3. Log raw message ────────────────────────────────────────────────────
+    db.add(MessageLog(raw_message=message_text, sender=sender_id, group_name=group_name))
     db.flush()
 
-    # ── 3b. Supervisor command check (runs before AI classifier) ─────────────
-    # Pattern: "<ticket_id> <action>", e.g. "123 resolved", "45 started"
+    # ── 4. Supervisor command (bypasses AI + policy Phase 2) ─────────────────
     if is_supervisor_command(message_text):
-        logger.info("OpenClaw: supervisor command detected from %s", sender_id)
-        sv_result = process_supervisor_reply(message_text, db)
+        logger.info("OpenClaw: supervisor command from %s", sender_id)
+        sv = process_supervisor_reply(message_text, db)
         reply_sent = False
-        if group_id:
-            client = get_openclaw_client()
-            reply_sent = await client.send_message(group_id, sv_result.confirmation)
+        if group_id and inbound_decision.allow_reply:
+            reply_sent = await get_openclaw_client().send_message(group_id, sv.confirmation)
         return OpenClawEventResponse(
             status="supervisor_action",
-            ticket_id=sv_result.ticket_id,
-            whatsapp_reply=sv_result.confirmation,
+            ticket_id=sv.ticket_id,
+            whatsapp_reply=sv.confirmation,
             reply_sent=reply_sent,
-            reason=f"action={sv_result.action.value if sv_result.action else None} success={sv_result.success}",
+            reason=f"action={sv.action.value if sv.action else None} success={sv.success}",
+            policy_violations=inbound_decision.violations,
         )
 
-    # ── 4. Classify ──────────────────────────────────────────────────────────
+    # ── 5. AI classification ──────────────────────────────────────────────────
     try:
         result: ClassificationResult = await classify_complaint(message_text)
     except Exception as exc:
         logger.error("Classification error: %s", exc)
         result = ClassificationResult(
-            is_complaint=True,
-            category="Other",
-            priority="Medium",
-            location=None,
-            confidence=0.0,
+            is_complaint=True, category="Other",
+            priority="Medium", location=None, confidence=0.0,
         )
 
     classification = ClassificationResponse(
@@ -195,11 +178,19 @@ async def handle_openclaw_event(
         confidence=result.confidence,
     )
 
-    # ── 5. Ticket creation ───────────────────────────────────────────────────
+    # ── 6. Policy Phase 2 — post-classification checks ───────────────────────
+    post_decision = evaluate_classification(
+        is_complaint=result.is_complaint,
+        confidence=result.confidence,
+        group_id=group_id,
+    )
+    all_violations = inbound_decision.violations + post_decision.violations
+
+    # ── 7. Ticket creation ────────────────────────────────────────────────────
     ticket_id: Optional[int] = None
     whatsapp_reply: str
 
-    if result.is_complaint and result.confidence > CONFIDENCE_THRESHOLD:
+    if post_decision.allow_ticket:
         priority = _PRIORITY_MAP.get(result.priority, TicketPriority.MEDIUM)
         ticket = Ticket(
             message_text=message_text,
@@ -216,54 +207,44 @@ async def handle_openclaw_event(
         ticket_id = ticket.id
         whatsapp_reply = generate_whatsapp_reply(ticket)
         logger.info(
-            "Ticket #%d created via OpenClaw — category=%s priority=%s confidence=%.2f",
+            "Ticket #%d created — category=%s priority=%s confidence=%.2f",
             ticket_id, result.category, result.priority, result.confidence,
         )
     else:
         db.commit()
-        whatsapp_reply = generate_ignored_reply()
-        if not result.is_complaint:
-            logger.info("OpenClaw: non-complaint message ignored — sender=%s", sender_id)
-        else:
-            logger.info(
-                "OpenClaw: low-confidence message ignored (%.2f) — sender=%s",
-                result.confidence, sender_id,
-            )
+        whatsapp_reply = generate_ignored_reply() if result.is_complaint else ""
+        logger.info(
+            "Ticket skipped — %s — sender=%s", post_decision.reason, sender_id
+        )
 
-    # ── 6. Send reply back to WhatsApp group ─────────────────────────────────
+    # ── 8. Send reply ─────────────────────────────────────────────────────────
     reply_sent = False
-    if group_id:
-        client = get_openclaw_client()
-        reply_sent = await client.send_message(group_id, whatsapp_reply)
-    else:
-        logger.warning("OpenClaw: no group_id available — cannot send reply")
+    can_reply = post_decision.allow_reply and bool(whatsapp_reply)
+
+    if can_reply and group_id:
+        reply_sent = await get_openclaw_client().send_message(group_id, whatsapp_reply)
+    elif not can_reply:
+        logger.info("Reply suppressed — policy: %s", post_decision.reason)
 
     return OpenClawEventResponse(
         status="processed",
+        reason=post_decision.reason,
+        policy_violations=all_violations,
         ticket_id=ticket_id,
         is_complaint=result.is_complaint,
         classification=classification,
-        whatsapp_reply=whatsapp_reply,
+        whatsapp_reply=whatsapp_reply or None,
         reply_sent=reply_sent,
     )
 
 
-# ─── Diagnostics ──────────────────────────────────────────────────────────────
+# ─── Config / diagnostics ─────────────────────────────────────────────────────
 
-@router.get(
-    "/config",
-    summary="Show current OpenClaw integration configuration",
-    tags=["OpenClaw"],
-)
+@router.get("/config", summary="Show OpenClaw + policy configuration")
 def openclaw_config():
-    """
-    Returns the active integration settings (no secrets exposed).
-    Useful for verifying your environment setup.
-    """
     import os
     return {
-        "openclaw_api_url": os.getenv("OPENCLAW_API_URL", "https://api.openclaw.io"),
+        "openclaw_api_url":   os.getenv("OPENCLAW_API_URL", "https://api.openclaw.io"),
         "api_key_configured": bool(os.getenv("OPENCLAW_API_KEY")),
-        "allowed_groups": allowed_groups_list() or ["* (all groups)"],
-        "confidence_threshold": CONFIDENCE_THRESHOLD,
+        "policy":             get_policy_config(),
     }
