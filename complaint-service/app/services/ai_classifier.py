@@ -1,5 +1,5 @@
 """
-AI-powered complaint classifier using the Anthropic Claude API.
+AI-powered complaint classifier using the GROQ API.
 
 Returns a structured JSON result:
 {
@@ -10,7 +10,7 @@ Returns a structured JSON result:
     "confidence": 0.0 – 1.0
 }
 
-Falls back to a keyword-based classifier when ANTHROPIC_API_KEY is not set.
+Falls back to a keyword-based classifier when GROQ_API_KEY is not set.
 """
 import json
 import logging
@@ -20,11 +20,12 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-3-haiku-20240307")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama3-8b-8192")
 
 CATEGORIES = ["Lift", "Garbage", "Cleaning", "Water", "Electrical", "Security", "Other"]
 PRIORITIES = ["High", "Medium", "Low"]
+
 
 # ─── Result dataclass ──────────────────────────────────────────────────────────
 
@@ -80,7 +81,7 @@ Rules:
 - Respond ONLY with the JSON object. No extra text."""
 
 
-# ─── Claude classifier ────────────────────────────────────────────────────────
+# ─── GROQ classifier ──────────────────────────────────────────────────────────
 
 def _parse_result(raw: str) -> ClassificationResult:
     match = re.search(r'\{.*\}', raw, re.DOTALL)
@@ -112,22 +113,25 @@ def _parse_result(raw: str) -> ClassificationResult:
     )
 
 
-async def _claude_classify(text: str) -> ClassificationResult:
+async def _groq_classify(text: str) -> ClassificationResult:
     try:
-        import anthropic  # lazy import — only when key is configured
+        from groq import AsyncGroq  # lazy import — only when key is configured
 
-        client = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
-        message = await client.messages.create(
-            model=CLAUDE_MODEL,
+        client = AsyncGroq(api_key=GROQ_API_KEY)
+        response = await client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[
+                {"role": "system", "content": _SYSTEM_PROMPT},
+                {"role": "user", "content": text[:3000]},
+            ],
+            temperature=0,
             max_tokens=256,
-            system=_SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": text[:3000]}],
         )
-        raw = message.content[0].text
+        raw = response.choices[0].message.content or ""
         return _parse_result(raw)
 
     except Exception as exc:
-        logger.warning("Claude classification failed (%s); falling back to keyword classifier.", exc)
+        logger.warning("GROQ classification failed (%s); falling back to keyword classifier.", exc)
         return _keyword_classify(text)
 
 
@@ -205,9 +209,9 @@ async def classify_complaint(text: str) -> ClassificationResult:
     """
     Classify the given message text.
 
-    Uses Claude when ANTHROPIC_API_KEY is set; otherwise falls back to the
+    Uses GROQ when GROQ_API_KEY is set; otherwise falls back to the
     keyword-based classifier which requires no external dependencies.
     """
-    if ANTHROPIC_API_KEY:
-        return await _claude_classify(text)
+    if GROQ_API_KEY:
+        return await _groq_classify(text)
     return _keyword_classify(text)
