@@ -56,29 +56,25 @@ class ClassificationResult:
         }
 
 
-# ─── Prompt ───────────────────────────────────────────────────────────────────
+# ─── Prompt template ──────────────────────────────────────────────────────────
 
-_SYSTEM_PROMPT = f"""You are a complaint classification assistant for a residential building management system.
+_USER_PROMPT_TEMPLATE = """\
+Classify the following WhatsApp message.
 
-Analyse the input message and respond with ONLY a valid JSON object — no markdown, no explanation, no extra text.
+Return:
+- is_complaint (true/false)
+- category (Lift, Garbage, Cleaning, Water, Electrical, Security, Other)
+- priority (High, Medium, Low)
+- location (if mentioned)
+- confidence (0 to 1)
 
-JSON schema (strictly follow this):
-{{
-  "is_complaint": <boolean — true if the message is a genuine complaint, false for greetings/casual/spam>,
-  "category": "<one of: {", ".join(CATEGORIES)}>",
-  "priority": "<one of: High, Medium, Low>",
-  "location": "<extracted location string or null if not mentioned>",
-  "confidence": <float between 0 and 1 indicating classification confidence>
-}}
+Message: "{message}"
 
-Rules:
-- Set is_complaint=false for greetings, thank-you messages, casual chat, announcements, and non-actionable messages.
-- When is_complaint=false, still fill in the other fields with your best guess; set confidence low (≤0.3).
-- Urgency keywords that raise priority to High: "urgent", "emergency", "not working", "immediately", "danger", "stuck", "flooding", "fire", "broken".
-- Priority Medium: issue is real but not immediately dangerous.
-- Priority Low: cosmetic, minor inconvenience, or can wait.
-- Location: extract any floor number, flat number, block, area, or specific place mentioned in the text.
-- Respond ONLY with the JSON object. No extra text."""
+Return JSON only."""
+
+
+def _build_prompt(message: str) -> str:
+    return _USER_PROMPT_TEMPLATE.format(message=message)
 
 
 # ─── GROQ classifier ──────────────────────────────────────────────────────────
@@ -121,8 +117,7 @@ async def _groq_classify(text: str) -> ClassificationResult:
         response = await client.chat.completions.create(
             model=GROQ_MODEL,
             messages=[
-                {"role": "system", "content": _SYSTEM_PROMPT},
-                {"role": "user", "content": text[:3000]},
+                {"role": "user", "content": _build_prompt(text[:3000])},
             ],
             temperature=0,
             max_tokens=256,
