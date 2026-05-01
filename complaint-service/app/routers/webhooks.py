@@ -1,34 +1,48 @@
 """
 Webhook endpoint — receives incoming WhatsApp messages from OpenClaw,
-logs them, classifies via AI, and creates a ticket.
+logs them, classifies via Claude AI, and creates a ticket only if it
+is a genuine complaint.
 """
 import logging
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import MessageLog, Ticket, TicketStatus, TicketPriority
-from app.schemas import IncomingMessage, WebhookResponse
+from app.schemas import (
+    IncomingMessage,
+    WebhookResponse,
+    ClassificationResponse,
+    ClassifyRequest,
+)
 from app.services.ai_classifier import classify_complaint
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/webhook", tags=["Webhook"])
 
+# Maps Claude priority labels → ORM enum values
+_PRIORITY_MAP = {
+    "High": TicketPriority.HIGH,
+    "Medium": TicketPriority.MEDIUM,
+    "Low": TicketPriority.LOW,
+}
+
 
 @router.post(
     "/message",
     response_model=WebhookResponse,
-    status_code=status.HTTP_201_CREATED,
+    status_code=status.HTTP_200_OK,
     summary="Receive a WhatsApp message from OpenClaw",
 )
 async def receive_message(payload: IncomingMessage, db: Session = Depends(get_db)):
     """
     Entry point for OpenClaw webhook events.
 
-    1. Logs the raw message.
-    2. Classifies the complaint using AI.
-    3. Creates and persists a ticket.
-    4. Returns the ticket ID, category, and priority.
+    1. Logs the raw message for audit.
+    2. Classifies the message using Claude (or keyword fallback).
+    3. If `is_complaint=true`, creates a tracked ticket.
+    4. If `is_complaint=false` (greeting, casual, spam), logs but skips ticket creation.
+    5. Returns the full classification JSON plus the ticket ID (null when not a complaint).
     """
     log = MessageLog(
         raw_message=payload.message_text,
@@ -39,33 +53,74 @@ async def receive_message(payload: IncomingMessage, db: Session = Depends(get_db
     db.flush()
 
     try:
-        category, priority_str = await classify_complaint(payload.message_text)
+        result = await classify_complaint(payload.message_text)
     except Exception as exc:
         logger.error("Classification error: %s", exc)
-        category, priority_str = "Other", "MEDIUM"
+        from app.services.ai_classifier import ClassificationResult
+        result = ClassificationResult(
+            is_complaint=True,
+            category="Other",
+            priority="Medium",
+            location=None,
+            confidence=0.0,
+        )
 
-    try:
-        priority = TicketPriority(priority_str)
-    except ValueError:
-        priority = TicketPriority.MEDIUM
-
-    ticket = Ticket(
-        message_text=payload.message_text,
-        category=category,
-        priority=priority,
-        location=payload.location,
-        status=TicketStatus.OPEN,
-        reporter_name=payload.reporter_name,
-        group_name=payload.group_name,
+    classification = ClassificationResponse(
+        is_complaint=result.is_complaint,
+        category=result.category,
+        priority=result.priority,
+        location=result.location or payload.location,
+        confidence=result.confidence,
     )
-    db.add(ticket)
-    db.commit()
-    db.refresh(ticket)
 
-    logger.info("Ticket #%d created — category=%s priority=%s", ticket.id, category, priority_str)
+    ticket_id: int | None = None
+
+    if result.is_complaint:
+        priority = _PRIORITY_MAP.get(result.priority, TicketPriority.MEDIUM)
+        ticket = Ticket(
+            message_text=payload.message_text,
+            category=result.category,
+            priority=priority,
+            location=result.location or payload.location,
+            status=TicketStatus.OPEN,
+            reporter_name=payload.reporter_name,
+            group_name=payload.group_name,
+        )
+        db.add(ticket)
+        db.commit()
+        db.refresh(ticket)
+        ticket_id = ticket.id
+        logger.info(
+            "Ticket #%d created — category=%s priority=%s confidence=%.2f",
+            ticket_id, result.category, result.priority, result.confidence,
+        )
+    else:
+        db.commit()
+        logger.info(
+            "Non-complaint message ignored — sender=%s confidence=%.2f",
+            payload.sender, result.confidence,
+        )
 
     return WebhookResponse(
-        ticket_id=ticket.id,
-        category=category,
-        priority=priority,
+        ticket_id=ticket_id,
+        is_complaint=result.is_complaint,
+        classification=classification,
+        message="Complaint received and ticket created" if result.is_complaint
+                else "Message received but not classified as a complaint — no ticket created",
     )
+
+
+@router.post(
+    "/classify",
+    response_model=ClassificationResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Classify a message without creating a ticket",
+)
+async def classify_only(payload: ClassifyRequest):
+    """
+    Standalone classification endpoint — useful for testing or
+    pre-screening messages before sending to the webhook.
+    Returns the raw classification JSON without touching the database.
+    """
+    result = await classify_complaint(payload.message_text)
+    return ClassificationResponse(**result.to_dict())

@@ -12,7 +12,23 @@ class IncomingMessage(BaseModel):
     sender: Optional[str] = Field(None, description="WhatsApp sender ID / phone")
     group_name: Optional[str] = Field(None, description="WhatsApp group name")
     reporter_name: Optional[str] = Field(None, description="Display name of the sender")
-    location: Optional[str] = Field(None, description="Location extracted or provided")
+    location: Optional[str] = Field(None, description="Caller-provided location hint (AI may override)")
+
+
+# ─── Classification result (returned by the AI classifier) ────────────────────
+
+class ClassificationResponse(BaseModel):
+    is_complaint: bool = Field(..., description="True if the message is a genuine complaint")
+    category: str = Field(..., description="Lift | Garbage | Cleaning | Water | Electrical | Security | Other")
+    priority: str = Field(..., description="High | Medium | Low")
+    location: Optional[str] = Field(None, description="Location extracted from the message text")
+    confidence: float = Field(..., ge=0.0, le=1.0, description="Classifier confidence score (0–1)")
+
+
+# ─── Standalone classify endpoint ─────────────────────────────────────────────
+
+class ClassifyRequest(BaseModel):
+    message_text: str = Field(..., description="Text to classify")
 
 
 # ─── Ticket schemas ────────────────────────────────────────────────────────────
@@ -75,10 +91,10 @@ class SupervisorActionResponse(SupervisorActionCreate):
 # ─── Webhook response ──────────────────────────────────────────────────────────
 
 class WebhookResponse(BaseModel):
-    ticket_id: int
-    category: str
-    priority: TicketPriority
-    message: str = "Complaint received and classified"
+    ticket_id: Optional[int] = Field(None, description="Null when message is not a complaint")
+    is_complaint: bool
+    classification: ClassificationResponse
+    message: str
 
 
 # ─── Report schemas ────────────────────────────────────────────────────────────
