@@ -133,6 +133,42 @@ export interface DeletedResponse {
   id: number;
 }
 
+export interface AiChatRequest {
+  /** Existing conversation to append to */
+  conversation_id: number;
+  /** User prompt text */
+  message: string;
+  /** Optional system prompt override */
+  system_prompt?: string | null;
+}
+
+export interface AiConversation {
+  id: number;
+  title: string;
+  created_at: string;
+  updated_at?: string | null;
+}
+
+export interface AiConversationInput {
+  title: string;
+}
+
+export type AiMessageRole = (typeof AiMessageRole)[keyof typeof AiMessageRole];
+
+export const AiMessageRole = {
+  user: "user",
+  assistant: "assistant",
+  system: "system",
+} as const;
+
+export interface AiMessage {
+  id: number;
+  conversation_id: number;
+  role: AiMessageRole;
+  content: string;
+  created_at: string;
+}
+
 export interface SuccessResponse {
   success: boolean;
 }

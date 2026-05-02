@@ -18,6 +18,10 @@ import type {
 
 import type {
   ActivityItem,
+  AiChatRequest,
+  AiConversation,
+  AiConversationInput,
+  AiMessage,
   CategoryCount,
   DailyCount,
   DashboardStats,
@@ -917,6 +921,424 @@ export const useUpdateTicketStatus = <
 > => {
   return useMutation(getUpdateTicketStatusMutationOptions(options));
 };
+
+/**
+ * @summary Send a prompt and get an AI-streamed response (SSE)
+ */
+export const getAiChatUrl = () => {
+  return `/api/ai/chat`;
+};
+
+export const aiChat = async (
+  aiChatRequest: AiChatRequest,
+  options?: RequestInit,
+): Promise<string> => {
+  return customFetch<string>(getAiChatUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(aiChatRequest),
+  });
+};
+
+export const getAiChatMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof aiChat>>,
+    TError,
+    { data: BodyType<AiChatRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof aiChat>>,
+  TError,
+  { data: BodyType<AiChatRequest> },
+  TContext
+> => {
+  const mutationKey = ["aiChat"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof aiChat>>,
+    { data: BodyType<AiChatRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return aiChat(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AiChatMutationResult = NonNullable<
+  Awaited<ReturnType<typeof aiChat>>
+>;
+export type AiChatMutationBody = BodyType<AiChatRequest>;
+export type AiChatMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Send a prompt and get an AI-streamed response (SSE)
+ */
+export const useAiChat = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof aiChat>>,
+    TError,
+    { data: BodyType<AiChatRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof aiChat>>,
+  TError,
+  { data: BodyType<AiChatRequest> },
+  TContext
+> => {
+  return useMutation(getAiChatMutationOptions(options));
+};
+
+/**
+ * @summary List all AI conversations
+ */
+export const getListAiConversationsUrl = () => {
+  return `/api/ai/conversations`;
+};
+
+export const listAiConversations = async (
+  options?: RequestInit,
+): Promise<AiConversation[]> => {
+  return customFetch<AiConversation[]>(getListAiConversationsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListAiConversationsQueryKey = () => {
+  return [`/api/ai/conversations`] as const;
+};
+
+export const getListAiConversationsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAiConversations>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listAiConversations>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListAiConversationsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAiConversations>>
+  > = ({ signal }) => listAiConversations({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAiConversations>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAiConversationsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAiConversations>>
+>;
+export type ListAiConversationsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all AI conversations
+ */
+
+export function useListAiConversations<
+  TData = Awaited<ReturnType<typeof listAiConversations>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listAiConversations>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAiConversationsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a new AI conversation
+ */
+export const getCreateAiConversationUrl = () => {
+  return `/api/ai/conversations`;
+};
+
+export const createAiConversation = async (
+  aiConversationInput: AiConversationInput,
+  options?: RequestInit,
+): Promise<AiConversation> => {
+  return customFetch<AiConversation>(getCreateAiConversationUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(aiConversationInput),
+  });
+};
+
+export const getCreateAiConversationMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAiConversation>>,
+    TError,
+    { data: BodyType<AiConversationInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createAiConversation>>,
+  TError,
+  { data: BodyType<AiConversationInput> },
+  TContext
+> => {
+  const mutationKey = ["createAiConversation"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createAiConversation>>,
+    { data: BodyType<AiConversationInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createAiConversation(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateAiConversationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createAiConversation>>
+>;
+export type CreateAiConversationMutationBody = BodyType<AiConversationInput>;
+export type CreateAiConversationMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a new AI conversation
+ */
+export const useCreateAiConversation = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAiConversation>>,
+    TError,
+    { data: BodyType<AiConversationInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createAiConversation>>,
+  TError,
+  { data: BodyType<AiConversationInput> },
+  TContext
+> => {
+  return useMutation(getCreateAiConversationMutationOptions(options));
+};
+
+/**
+ * @summary Delete a conversation and all its messages
+ */
+export const getDeleteAiConversationUrl = (id: number) => {
+  return `/api/ai/conversations/${id}`;
+};
+
+export const deleteAiConversation = async (
+  id: number,
+  options?: RequestInit,
+): Promise<SuccessResponse> => {
+  return customFetch<SuccessResponse>(getDeleteAiConversationUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteAiConversationMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAiConversation>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteAiConversation>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteAiConversation"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteAiConversation>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteAiConversation(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteAiConversationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteAiConversation>>
+>;
+
+export type DeleteAiConversationMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a conversation and all its messages
+ */
+export const useDeleteAiConversation = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAiConversation>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteAiConversation>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteAiConversationMutationOptions(options));
+};
+
+/**
+ * @summary Get all messages for a conversation
+ */
+export const getListAiMessagesUrl = (id: number) => {
+  return `/api/ai/conversations/${id}/messages`;
+};
+
+export const listAiMessages = async (
+  id: number,
+  options?: RequestInit,
+): Promise<AiMessage[]> => {
+  return customFetch<AiMessage[]>(getListAiMessagesUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListAiMessagesQueryKey = (id: number) => {
+  return [`/api/ai/conversations/${id}/messages`] as const;
+};
+
+export const getListAiMessagesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAiMessages>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAiMessages>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListAiMessagesQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listAiMessages>>> = ({
+    signal,
+  }) => listAiMessages(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAiMessages>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAiMessagesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAiMessages>>
+>;
+export type ListAiMessagesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get all messages for a conversation
+ */
+
+export function useListAiMessages<
+  TData = Awaited<ReturnType<typeof listAiMessages>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAiMessages>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAiMessagesQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Get WhatsApp QR code for pairing

@@ -16,6 +16,8 @@ tags:
     description: Complaint tickets management
   - name: connect
     description: WhatsApp and Telegram channel connection
+  - name: ai
+    description: AI prompt interface
 
 paths:
   /healthz:
@@ -224,6 +226,97 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+
+  /ai/chat:
+    post:
+      operationId: aiChat
+      tags: [ai]
+      summary: Send a prompt and get an AI-streamed response (SSE)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiChatRequest"
+      responses:
+        "200":
+          description: SSE stream of text chunks
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+  /ai/conversations:
+    get:
+      operationId: listAiConversations
+      tags: [ai]
+      summary: List all AI conversations
+      responses:
+        "200":
+          description: List of conversations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AiConversation"
+    post:
+      operationId: createAiConversation
+      tags: [ai]
+      summary: Create a new AI conversation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiConversationInput"
+      responses:
+        "201":
+          description: Created conversation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiConversation"
+
+  /ai/conversations/{id}:
+    delete:
+      operationId: deleteAiConversation
+      tags: [ai]
+      summary: Delete a conversation and all its messages
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /ai/conversations/{id}/messages:
+    get:
+      operationId: listAiMessages
+      tags: [ai]
+      summary: Get all messages for a conversation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AiMessage"
 
   /connect/whatsapp/qr:
     get:
@@ -737,6 +830,58 @@ components:
         id:
           type: integer
       required: [deleted, id]
+
+    AiChatRequest:
+      type: object
+      properties:
+        conversation_id:
+          type: integer
+          description: Existing conversation to append to
+        message:
+          type: string
+          description: User prompt text
+        system_prompt:
+          type: string
+          nullable: true
+          description: Optional system prompt override
+      required: [conversation_id, message]
+
+    AiConversation:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        created_at:
+          type: string
+        updated_at:
+          type: string
+          nullable: true
+      required: [id, title, created_at]
+
+    AiConversationInput:
+      type: object
+      properties:
+        title:
+          type: string
+      required: [title]
+
+    AiMessage:
+      type: object
+      properties:
+        id:
+          type: integer
+        conversation_id:
+          type: integer
+        role:
+          type: string
+          enum: [user, assistant, system]
+        content:
+          type: string
+        created_at:
+          type: string
+      required: [id, conversation_id, role, content, created_at]
 
     SuccessResponse:
       type: object

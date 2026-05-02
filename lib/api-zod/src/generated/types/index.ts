@@ -7,6 +7,11 @@
  */
 
 export * from "./activityItem";
+export * from "./aiChatRequest";
+export * from "./aiConversation";
+export * from "./aiConversationInput";
+export * from "./aiMessage";
+export * from "./aiMessageRole";
 export * from "./categoryCount";
 export * from "./dailyCount";
 export * from "./dashboardStats";

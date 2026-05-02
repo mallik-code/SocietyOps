@@ -168,6 +168,65 @@ export const UpdateTicketStatusResponse = zod.object({
 });
 
 /**
+ * @summary Send a prompt and get an AI-streamed response (SSE)
+ */
+export const AiChatBody = zod.object({
+  conversation_id: zod.number().describe("Existing conversation to append to"),
+  message: zod.string().describe("User prompt text"),
+  system_prompt: zod
+    .string()
+    .nullish()
+    .describe("Optional system prompt override"),
+});
+
+/**
+ * @summary List all AI conversations
+ */
+export const ListAiConversationsResponseItem = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  created_at: zod.string(),
+  updated_at: zod.string().nullish(),
+});
+export const ListAiConversationsResponse = zod.array(
+  ListAiConversationsResponseItem,
+);
+
+/**
+ * @summary Create a new AI conversation
+ */
+export const CreateAiConversationBody = zod.object({
+  title: zod.string(),
+});
+
+/**
+ * @summary Delete a conversation and all its messages
+ */
+export const DeleteAiConversationParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteAiConversationResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary Get all messages for a conversation
+ */
+export const ListAiMessagesParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ListAiMessagesResponseItem = zod.object({
+  id: zod.number(),
+  conversation_id: zod.number(),
+  role: zod.enum(["user", "assistant", "system"]),
+  content: zod.string(),
+  created_at: zod.string(),
+});
+export const ListAiMessagesResponse = zod.array(ListAiMessagesResponseItem);
+
+/**
  * @summary Get WhatsApp QR code for pairing
  */
 export const GetWhatsappQrResponse = zod.object({
