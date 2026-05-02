@@ -259,8 +259,9 @@ router.post("/ai/chat", async (req, res) => {
   let fullResponse = "";
 
   try {
+    const model = process.env.AI_MODEL ?? "llama-3.3-70b-versatile";
     const stream = await openai.chat.completions.create({
-      model: "gpt-5.4",
+      model,
       max_completion_tokens: 8192,
       messages: chatMessages,
       stream: true,

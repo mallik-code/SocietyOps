@@ -90,7 +90,7 @@ function WhatsAppPanel() {
   });
 
   const { data: qrData, isLoading: qrLoading, refetch: refetchQr } = useGetWhatsappQr({
-    query: { enabled: !status?.connected, refetchInterval: polling ? 30000 : false },
+    query: { enabled: status?.connected === false, refetchInterval: polling ? 30000 : false },
   });
 
   const { mutate: logout, isPending: logoutPending } = useLogoutWhatsapp({

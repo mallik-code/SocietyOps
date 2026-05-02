@@ -2,11 +2,11 @@
 # In docker-compose: build.context: .
 
 # ── Stage 1: install dependencies ────────────────────────────────────────────
-FROM node:22-alpine AS deps
-RUN npm install -g pnpm
+FROM node:22-slim AS deps
+RUN corepack enable
 WORKDIR /workspace
 
-# Workspace root manifests (.npmrc must come first — sets musl arch before install)
+# Workspace root manifests
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./
 
 # All workspace package manifests — pnpm needs these to resolve workspace:* links
@@ -30,6 +30,7 @@ FROM deps AS build
 # Copy lib source needed by the dashboard (api-client-react is a direct dep)
 COPY lib/ ./lib/
 COPY artifacts/dashboard/ ./artifacts/dashboard/
+COPY tsconfig.base.json ./
 
 # Provide defaults so vite.config.ts doesn't throw outside Replit
 ENV PORT=3000

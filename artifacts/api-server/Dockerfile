@@ -2,11 +2,11 @@
 # In docker-compose: build.context: .
 
 # ── Stage 1: install dependencies ────────────────────────────────────────────
-FROM node:22-alpine AS deps
-RUN npm install -g pnpm
+FROM node:22-slim AS deps
+RUN corepack enable
 WORKDIR /workspace
 
-# Workspace root manifests (.npmrc must come first — sets musl arch before install)
+# Workspace root manifests
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./
 
 # All workspace package manifests — pnpm needs these to resolve workspace:* links
@@ -29,15 +29,23 @@ FROM deps AS build
 
 COPY lib/ ./lib/
 COPY artifacts/api-server/ ./artifacts/api-server/
+COPY tsconfig.base.json ./
 
 RUN pnpm --filter @workspace/api-server run build
+# Copy CSV data files into dist so they are available at runtime
+RUN mkdir -p /workspace/artifacts/api-server/dist/data && \
+    cp /workspace/artifacts/api-server/src/data/*.csv \
+       /workspace/artifacts/api-server/dist/data/
 
 
 # ── Stage 3: lean runtime image ──────────────────────────────────────────────
-FROM node:22-alpine
-WORKDIR /app
+FROM node:22-slim
+# Match the build-stage path so esbuild-plugin-pino's baked-in absolute worker
+# paths (/workspace/artifacts/api-server/dist/thread-stream-worker.mjs) resolve correctly.
+WORKDIR /workspace/artifacts/api-server
 
 COPY --from=build /workspace/artifacts/api-server/dist/ ./dist/
+COPY --from=build /workspace/artifacts/api-server/dist/data/ ./dist/data/
 
 ENV PORT=3001
 EXPOSE 3001

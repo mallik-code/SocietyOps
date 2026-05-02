@@ -7,8 +7,10 @@ import { Dashboard } from "@/components/Dashboard";
 import { PoliciesPage } from "@/components/PoliciesPage";
 import { ConnectPage } from "@/components/ConnectPage";
 import { PromptPage } from "@/components/PromptPage";
+import { MessagesPage } from "@/components/MessagesPage";
+import { ClassificationPage } from "@/components/ClassificationPage";
 import NotFound from "@/pages/not-found";
-import { LayoutDashboard, ShieldCheck, Sun, Moon, Wifi, WifiOff, PlugZap, Sparkles } from "lucide-react";
+import { LayoutDashboard, ShieldCheck, Sun, Moon, Wifi, WifiOff, PlugZap, Sparkles, MessageSquare, Tags } from "lucide-react";
 import { useGetWhatsappStatus } from "@workspace/api-client-react";
 
 const queryClient = new QueryClient({
@@ -66,6 +68,28 @@ function NavBar({ isDark, onToggleDark }: { isDark: boolean; onToggleDark: () =>
           >
             <PlugZap className="w-4 h-4" />
             Connect
+          </Link>
+          <Link
+            href="/messages"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              location === "/messages"
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted"
+            }`}
+          >
+            <MessageSquare className="w-4 h-4" />
+            Messages
+          </Link>
+          <Link
+            href="/classification"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              location === "/classification"
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted"
+            }`}
+          >
+            <Tags className="w-4 h-4" />
+            Classification
           </Link>
           <Link
             href="/ai"
@@ -127,6 +151,12 @@ function AppShell() {
         </Route>
         <Route path="/connect">
           <ConnectPage isDark={isDark} />
+        </Route>
+        <Route path="/messages">
+          <MessagesPage isDark={isDark} />
+        </Route>
+        <Route path="/classification">
+          <ClassificationPage isDark={isDark} />
         </Route>
         <Route path="/ai">
           <PromptPage isDark={isDark} />

@@ -1,0 +1,4 @@
+id,message_text,category,priority,location,status,reporter_name,group_name
+1,There is a major water pipe leak on Main Street flooding the road.,Water Supply,HIGH,Main Street,OPEN,Ahmed Ali,Residents Group A
+2,Power outage since last night in block 5. No electricity for 12 hours.,Electricity,CRITICAL,Block 5,IN_PROGRESS,Sara Khan,Block 5 Community
+3,Potholes on Highway 12 near the school are very dangerous for kids.,Road & Infrastructure,HIGH,Highway 12,OPEN,Omar Farooq,Highway Watch

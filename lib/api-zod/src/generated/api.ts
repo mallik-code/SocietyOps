@@ -227,6 +227,26 @@ export const ListAiMessagesResponseItem = zod.object({
 export const ListAiMessagesResponse = zod.array(ListAiMessagesResponseItem);
 
 /**
+ * @summary Classify all unclassified messages
+ */
+export const ClassifyMessagesResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary Get all WhatsApp messages for classification
+ */
+export const ListMessagesResponseItem = zod.object({
+  id: zod.number(),
+  text: zod.string(),
+  sender: zod.string(),
+  group_name: zod.string().nullish(),
+  category: zod.string().nullish(),
+  timestamp: zod.string(),
+});
+export const ListMessagesResponse = zod.array(ListMessagesResponseItem);
+
+/**
  * @summary Get WhatsApp QR code for pairing
  */
 export const GetWhatsappQrResponse = zod.object({

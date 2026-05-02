@@ -18,8 +18,34 @@ tags:
     description: WhatsApp and Telegram channel connection
   - name: ai
     description: AI prompt interface
+  - name: admin
+    description: Test data management
 
 paths:
+  /admin/seed:
+    post:
+      operationId: importTestData
+      tags: [admin]
+      summary: Restore all test data to its initial state
+      responses:
+        "200":
+          description: Test data imported
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+    delete:
+      operationId: clearTestData
+      tags: [admin]
+      summary: Delete all test data (tickets, messages, groups, contacts)
+      responses:
+        "200":
+          description: Test data cleared
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
   /healthz:
     get:
       operationId: healthCheck
@@ -317,6 +343,34 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/AiMessage"
+
+  /dashboard/messages/classify:
+    post:
+      operationId: classifyMessages
+      tags: [dashboard]
+      summary: Classify all unclassified messages
+      responses:
+        "200":
+          description: Classifies unclassified messages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /dashboard/messages:
+    get:
+      operationId: listMessages
+      tags: [dashboard]
+      summary: Get all WhatsApp messages for classification
+      responses:
+        "200":
+          description: List of messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RawMessage"
 
   /connect/whatsapp/qr:
     get:
@@ -798,6 +852,25 @@ components:
         created_at:
           type: string
       required: [id, name, phone, enabled, message_count, created_at]
+
+    RawMessage:
+      type: object
+      properties:
+        id:
+          type: integer
+        text:
+          type: string
+        sender:
+          type: string
+        group_name:
+          type: string
+          nullable: true
+        category:
+          type: string
+          nullable: true
+        timestamp:
+          type: string
+      required: [id, text, sender, timestamp]
 
     TrackedContactInput:
       type: object

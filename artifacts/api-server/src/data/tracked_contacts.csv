@@ -1,0 +1,5 @@
+id,name,phone,description,enabled,message_count,created_days_ago
+1,Ahmed Al-Rashid,+971501234567,Block A Committee Head — direct complaint forwarding,true,34,30
+2,Fatima Khalid,+971509876543,Block B liaison,true,21,20
+3,Hassan Ali,+971507654321,Parking and security coordinator,true,17,15
+4,Sara Al-Amin,+971502345678,,false,5,7

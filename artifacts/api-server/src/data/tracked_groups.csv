@@ -1,0 +1,7 @@
+id,name,group_id,description,enabled,message_count,created_days_ago
+1,Block A Residents,120363012345678901@g.us,"Main group for Block A residents — floors 1-8",true,87,30
+2,Block B Residents,120363098765432101@g.us,Block B resident complaints and announcements,true,64,28
+3,Block C Residents,120363011122334455@g.us,,true,51,25
+4,Block D Residents,120363055667788990@g.us,Block D resident complaints group,false,12,10
+5,Building Management Group,120363019988776655@g.us,"Supervisors and building managers — priority escalations",true,203,45
+6,Amenities Group,120363033445566778@g.us,"Pool, gym and common area complaints",true,38,20

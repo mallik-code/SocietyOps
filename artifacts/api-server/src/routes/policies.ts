@@ -1,6 +1,8 @@
 import { Router, type IRouter } from "express";
+import { loadTrackedGroups, loadTrackedContacts } from "../lib/csv-loader";
 
 const router: IRouter = Router();
+
 
 export type TrackedGroup = {
   id: number;
@@ -22,104 +24,15 @@ export type TrackedContact = {
   created_at: string;
 };
 
-export const trackedGroups: TrackedGroup[] = [
-  {
-    id: 1,
-    name: "Block A Residents",
-    group_id: "120363012345678901@g.us",
-    description: "Main group for Block A residents — floors 1-8",
-    enabled: true,
-    message_count: 87,
-    created_at: new Date(Date.now() - 30 * 24 * 3600000).toISOString(),
-  },
-  {
-    id: 2,
-    name: "Block B Residents",
-    group_id: "120363098765432101@g.us",
-    description: "Block B resident complaints and announcements",
-    enabled: true,
-    message_count: 64,
-    created_at: new Date(Date.now() - 28 * 24 * 3600000).toISOString(),
-  },
-  {
-    id: 3,
-    name: "Block C Residents",
-    group_id: "120363011122334455@g.us",
-    description: null,
-    enabled: true,
-    message_count: 51,
-    created_at: new Date(Date.now() - 25 * 24 * 3600000).toISOString(),
-  },
-  {
-    id: 4,
-    name: "Block D Residents",
-    group_id: "120363055667788990@g.us",
-    description: "Block D resident complaints group",
-    enabled: false,
-    message_count: 12,
-    created_at: new Date(Date.now() - 10 * 24 * 3600000).toISOString(),
-  },
-  {
-    id: 5,
-    name: "Building Management Group",
-    group_id: "120363019988776655@g.us",
-    description: "Supervisors and building managers — priority escalations",
-    enabled: true,
-    message_count: 203,
-    created_at: new Date(Date.now() - 45 * 24 * 3600000).toISOString(),
-  },
-  {
-    id: 6,
-    name: "Amenities Group",
-    group_id: "120363033445566778@g.us",
-    description: "Pool, gym and common area complaints",
-    enabled: true,
-    message_count: 38,
-    created_at: new Date(Date.now() - 20 * 24 * 3600000).toISOString(),
-  },
-];
+// Loaded from src/data/tracked_groups.csv — mutated in-place by /admin/seed endpoints
+export const trackedGroups: TrackedGroup[] = loadTrackedGroups();
 
-export const trackedContacts: TrackedContact[] = [
-  {
-    id: 1,
-    name: "Ahmed Al-Rashid",
-    phone: "+971501234567",
-    description: "Block A Committee Head — direct complaint forwarding",
-    enabled: true,
-    message_count: 34,
-    created_at: new Date(Date.now() - 30 * 24 * 3600000).toISOString(),
-  },
-  {
-    id: 2,
-    name: "Fatima Khalid",
-    phone: "+971509876543",
-    description: "Block B liaison",
-    enabled: true,
-    message_count: 21,
-    created_at: new Date(Date.now() - 20 * 24 * 3600000).toISOString(),
-  },
-  {
-    id: 3,
-    name: "Hassan Ali",
-    phone: "+971507654321",
-    description: "Parking and security coordinator",
-    enabled: true,
-    message_count: 17,
-    created_at: new Date(Date.now() - 15 * 24 * 3600000).toISOString(),
-  },
-  {
-    id: 4,
-    name: "Sara Al-Amin",
-    phone: "+971502345678",
-    description: null,
-    enabled: false,
-    message_count: 5,
-    created_at: new Date(Date.now() - 7 * 24 * 3600000).toISOString(),
-  },
-];
+// Loaded from src/data/tracked_contacts.csv — mutated in-place by /admin/seed endpoints
+export const trackedContacts: TrackedContact[] = loadTrackedContacts();
 
 let groupIdCounter = trackedGroups.length + 1;
 let contactIdCounter = trackedContacts.length + 1;
+
 
 router.get("/policies/groups", (_req, res): void => {
   res.json(trackedGroups);

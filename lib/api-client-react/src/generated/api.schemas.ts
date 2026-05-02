@@ -116,6 +116,15 @@ export interface TrackedContact {
   created_at: string;
 }
 
+export interface RawMessage {
+  id: number;
+  text: string;
+  sender: string;
+  group_name?: string | null;
+  category?: string | null;
+  timestamp: string;
+}
+
 export interface TrackedContactInput {
   name: string;
   phone: string;

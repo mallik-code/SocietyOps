@@ -1,0 +1,16 @@
+id,message_text,category,priority,status,location,reporter_name,group_name,created_hours_ago,updated_hours_ago
+1,"The lift in Block A has been stuck on floor 3 since yesterday morning. Several residents are unable to use it.",Lift,High,in_progress,"Block A, Floor 3",Ahmed Al-Rashid,Block A Residents,26,10
+2,"Garbage has not been collected from the ground floor for 3 days. It's starting to smell.",Garbage,High,open,"Ground Floor, Block B",Fatima Khalid,Building Management Group,72,
+3,Water leak in apartment 4B ceiling — drops are coming from above. Urgent!,Water,High,open,Apartment 4B,Omar Hassan,Block B Residents,5,
+4,"The hallway lights on floors 2 and 3 in Block C have been flickering for a week.",Electrical,Medium,in_progress,"Block C, Floors 2-3",Layla Mansour,Block C Residents,168,48
+5,The main gate intercom system is not working. Visitors can't buzz in.,Security,High,resolved,Main Entrance,Yousef Ibrahim,Building Management Group,96,24
+6,The pool area has not been cleaned in two weeks. There is algae on the walls.,Cleaning,Medium,open,Pool Area,Sara Al-Amin,Amenities Group,336,
+7,Lift in Block B making loud grinding noise. Safety concern for residents.,Lift,High,open,Block B,Khalid Nasser,Block B Residents,2,
+8,The rooftop water tank is making noise at night. Possible pump issue.,Water,Medium,delayed,Rooftop,Nour Al-Din,Building Management Group,240,72
+9,Parking barrier arm broken. Anyone can enter the lot without authorization.,Security,Medium,in_progress,Basement Parking,Hassan Ali,Parking Group,72,24
+10,Central AC in lobby is blowing hot air. Temperature is unbearable.,Other,Medium,resolved,Lobby,Mariam Farouk,Block A Residents,120,24
+11,Corridor cleaning on floor 7 Block A hasn't been done since last Thursday.,Cleaning,Low,open,"Block A, Floor 7",Amira Saleh,Block A Residents,144,
+12,Power socket in gym not working. Treadmills and equipment cannot be used.,Electrical,Medium,closed,Gym,Tariq Bassam,Amenities Group,360,192
+13,"Water pressure very low in Block C apartments above floor 5.",Water,High,in_progress,"Block C, Floors 5-8",Rania Qassem,Block C Residents,8,2
+14,CCTV cameras in Block D stairwell appear offline. Security concern.,Security,High,open,"Block D, Stairwell",Jad Al-Haddad,Building Management Group,12,
+15,Lift door in Block D is not closing properly — keeps reopening after 2 seconds.,Lift,Medium,resolved,Block D,Dina Sharaf,Block D Residents,216,48

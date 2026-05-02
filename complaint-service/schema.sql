@@ -80,25 +80,16 @@ CREATE INDEX IF NOT EXISTS idx_supervisor_actions_ticket ON supervisor_actions (
 CREATE INDEX IF NOT EXISTS idx_supervisor_actions_ts     ON supervisor_actions (timestamp);
 
 -- ─────────────────────────────────────────────────────────────
--- Seed data (optional — remove before production)
+-- Seed data — removed from this file.
+-- Use the CSV files in this directory to load test data:
+--   seed_tickets.csv          → tickets table
+--   seed_message_logs.csv     → message_logs table
+--   seed_supervisor_actions.csv → supervisor_actions table
+--
+-- Example (SQLite):
+--   .mode csv
+--   .import seed_tickets.csv tickets
+--   .import seed_message_logs.csv message_logs
+--   .import seed_supervisor_actions.csv supervisor_actions
 -- ─────────────────────────────────────────────────────────────
-INSERT OR IGNORE INTO tickets (id, message_text, category, priority, location, status, reporter_name, group_name)
-VALUES
-  (1, 'There is a major water pipe leak on Main Street flooding the road.',
-      'Water Supply', 'HIGH', 'Main Street', 'OPEN', 'Ahmed Ali', 'Residents Group A'),
-  (2, 'Power outage since last night in block 5. No electricity for 12 hours.',
-      'Electricity', 'CRITICAL', 'Block 5', 'IN_PROGRESS', 'Sara Khan', 'Block 5 Community'),
-  (3, 'Potholes on Highway 12 near the school are very dangerous for kids.',
-      'Road & Infrastructure', 'HIGH', 'Highway 12', 'OPEN', 'Omar Farooq', 'Highway Watch');
 
-INSERT OR IGNORE INTO message_logs (id, raw_message, sender, group_name)
-VALUES
-  (1, 'There is a major water pipe leak on Main Street flooding the road.',
-      '+92-300-1234567', 'Residents Group A'),
-  (2, 'Power outage since last night in block 5. No electricity for 12 hours.',
-      '+92-300-9876543', 'Block 5 Community'),
-  (3, 'Potholes on Highway 12 near the school are very dangerous for kids.',
-      '+92-300-1122334', 'Highway Watch');
-
-INSERT OR IGNORE INTO supervisor_actions (id, ticket_id, action)
-VALUES (1, 2, 'STARTED');

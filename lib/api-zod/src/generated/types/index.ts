@@ -20,6 +20,7 @@ export * from "./errorResponse";
 export * from "./healthStatus";
 export * from "./listTicketsParams";
 export * from "./priorityCount";
+export * from "./rawMessage";
 export * from "./statusCount";
 export * from "./successResponse";
 export * from "./telegramQrResponse";

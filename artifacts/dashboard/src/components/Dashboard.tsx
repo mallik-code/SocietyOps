@@ -4,7 +4,9 @@ import { KPICards } from "./dashboard/KPICards";
 import { Charts } from "./dashboard/Charts";
 import { RecentActivity } from "./dashboard/RecentActivity";
 import { TicketsTable } from "./dashboard/TicketsTable";
-import { Printer, RefreshCw, ChevronDown, Check } from "lucide-react";
+import { useImportTestData, useClearTestData } from "@workspace/api-client-react";
+import { useToast } from "@/hooks/use-toast";
+import { Printer, RefreshCw, ChevronDown, Check, DatabaseZap, Trash2 } from "lucide-react";
 
 const INTERVAL_OPTIONS = [
   { label: "Off", ms: 0 },
@@ -19,10 +21,33 @@ interface DashboardProps {
 
 export function Dashboard({ isDark }: DashboardProps) {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [isSpinning, setIsSpinning] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [selectedIntervalMs, setSelectedIntervalMs] = useState(0);
+  const [confirmClear, setConfirmClear] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const { mutate: importData, isPending: isImporting } = useImportTestData({
+    mutation: {
+      onSuccess: () => {
+        toast({ title: "Test data imported", description: "All tables restored from CSV files." });
+        queryClient.clear();
+      },
+      onError: () => toast({ title: "Import failed", variant: "destructive" }),
+    },
+  });
+
+  const { mutate: clearData, isPending: isClearing } = useClearTestData({
+    mutation: {
+      onSuccess: () => {
+        toast({ title: "Test data cleared", description: "All tables are now empty." });
+        queryClient.clear();
+        setConfirmClear(false);
+      },
+      onError: () => toast({ title: "Clear failed", variant: "destructive" }),
+    },
+  });
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -100,6 +125,48 @@ export function Dashboard({ isDark }: DashboardProps) {
                 </div>
               )}
             </div>
+
+          {/* Test data controls */}
+          <div className="flex items-center gap-1.5 pl-2 border-l border-border">
+            <span className="text-[11px] text-muted-foreground font-medium pr-0.5">Test data:</span>
+            <button
+              onClick={() => importData()}
+              disabled={isImporting}
+              title="Restore all test data from CSV files"
+              className="flex items-center gap-1 px-2.5 h-[30px] rounded-md border border-border text-[12px] font-medium text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors disabled:opacity-50"
+            >
+              <DatabaseZap className={`w-3.5 h-3.5 ${isImporting ? "animate-pulse" : ""}`} />
+              {isImporting ? "Importing…" : "Import"}
+            </button>
+
+            {confirmClear ? (
+              <div className="flex items-center gap-1">
+                <span className="text-[11px] text-destructive font-semibold">Sure?</span>
+                <button
+                  onClick={() => clearData()}
+                  disabled={isClearing}
+                  className="flex items-center gap-1 px-2.5 h-[30px] rounded-md border border-destructive text-[12px] font-semibold text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
+                >
+                  {isClearing ? "Clearing…" : "Yes, clear"}
+                </button>
+                <button
+                  onClick={() => setConfirmClear(false)}
+                  className="flex items-center justify-center w-[30px] h-[30px] rounded-md border border-border text-muted-foreground hover:bg-muted transition-colors text-[12px]"
+                >
+                  ✕
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setConfirmClear(true)}
+                title="Delete all test data"
+                className="flex items-center gap-1 px-2.5 h-[30px] rounded-md border border-border text-[12px] font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Clear
+              </button>
+            )}
+          </div>
 
             {/* PDF export */}
             <button

@@ -1,3 +1,5 @@
+name: societyops
+
 version: "3.9"
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -35,7 +37,7 @@ volumes:
 
 services:
 
-  # ── PostgreSQL — Evolution API v2 requires a real database ───────────────
+  # ── PostgreSQL — shared by Evolution API and api-server ──────────────────
   postgres:
     image: postgres:16-alpine
     container_name: complaint_postgres
@@ -44,6 +46,7 @@ services:
       - complaint_net
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
     environment:
       POSTGRES_DB: evolution
       POSTGRES_USER: evolution
@@ -57,7 +60,7 @@ services:
 
   # ── Evolution API — self-hosted WhatsApp gateway ──────────────────────────
   evolution:
-    image: atendai/evolution-api:v2.2.3
+    image: atendai/evolution-api:latest
     container_name: complaint_evolution
     restart: unless-stopped
     depends_on:
@@ -116,10 +119,17 @@ services:
       STORE_CONTACTS: "true"
       STORE_CHATS: "true"
 
+      # ── Cache (disable Redis — use in-process local cache) ───────────────
+      CACHE_REDIS_ENABLED: "false"
+      CACHE_LOCAL_ENABLED: "true"
+
+      # ── WhatsApp Web client version (override stale baked-in default) ─────
+      CONFIG_SESSION_PHONE_VERSION: "2.3000.1035194821"
+
       # ── Logging ───────────────────────────────────────────────────────────
-      LOG_LEVEL: ERROR
+      LOG_LEVEL: INFO
       LOG_COLOR: "false"
-      LOG_BAILEYS: error
+      LOG_BAILEYS: info
       DEL_INSTANCE: "false"
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider",
@@ -137,15 +147,24 @@ services:
       dockerfile: artifacts/api-server/Dockerfile
     container_name: complaint_api_server
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
     ports:
       - "${API_SERVER_PORT:-3001}:3001"
     networks:
       - complaint_net
     environment:
       PORT: "3001"
+      DATABASE_URL: postgresql://evolution:${EVOLUTION_DB_PASSWORD:-evolution_pass}@postgres:5432/societyops
+      AI_INTEGRATIONS_OPENAI_BASE_URL: ${AI_INTEGRATIONS_OPENAI_BASE_URL:-https://api.openai.com/v1}
+      AI_INTEGRATIONS_OPENAI_API_KEY: ${AI_INTEGRATIONS_OPENAI_API_KEY}
+      EVOLUTION_API_URL: http://evolution:8080
+      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY:-change-me-strong-key-123}
+      EVOLUTION_INSTANCE: ${EVOLUTION_INSTANCE:-complaint-bot}
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider",
-             "http://localhost:3001/api/healthz"]
+      test: ["CMD", "node", "-e",
+             "require('http').get('http://localhost:3001/api/healthz',r=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))"]
       interval: 15s
       timeout: 5s
       retries: 3

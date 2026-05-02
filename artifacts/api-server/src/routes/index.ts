@@ -4,6 +4,8 @@ import dashboardRouter from "./dashboard";
 import policiesRouter from "./policies";
 import connectRouter from "./connect";
 import aiRouter from "./ai";
+import adminRouter from "./admin";
+import webhookRouter from "./webhook";
 
 const router: IRouter = Router();
 
@@ -12,5 +14,7 @@ router.use(dashboardRouter);
 router.use(policiesRouter);
 router.use(connectRouter);
 router.use(aiRouter);
+router.use(adminRouter);
+router.use(webhookRouter);
 
 export default router;
