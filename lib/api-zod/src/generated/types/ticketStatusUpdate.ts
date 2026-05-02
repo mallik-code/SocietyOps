@@ -5,7 +5,8 @@
  * WhatsApp Complaint Management Dashboard API
  * OpenAPI spec version: 0.1.0
  */
+import type { TicketStatusUpdateStatus } from "./ticketStatusUpdateStatus";
 
-export interface HealthStatus {
-  status: string;
+export interface TicketStatusUpdate {
+  status: TicketStatusUpdateStatus;
 }

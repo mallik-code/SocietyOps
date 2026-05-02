@@ -3,20 +3,24 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: WhatsApp Complaint Management Dashboard API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: dashboard
+    description: Dashboard summary and analytics
+  - name: tickets
+    description: Complaint tickets management
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +28,201 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /dashboard/stats:
+    get:
+      operationId: getDashboardStats
+      tags: [dashboard]
+      summary: Get high-level stats for the dashboard overview
+      responses:
+        "200":
+          description: Dashboard statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /dashboard/categories:
+    get:
+      operationId: getCategoryBreakdown
+      tags: [dashboard]
+      summary: Ticket count grouped by category
+      responses:
+        "200":
+          description: Category breakdown
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CategoryCount"
+
+  /dashboard/priorities:
+    get:
+      operationId: getPriorityBreakdown
+      tags: [dashboard]
+      summary: Ticket count grouped by priority
+      responses:
+        "200":
+          description: Priority breakdown
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PriorityCount"
+
+  /dashboard/trend:
+    get:
+      operationId: getDailyTrend
+      tags: [dashboard]
+      summary: Tickets created per day for the last 14 days
+      responses:
+        "200":
+          description: Daily ticket trend
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DailyCount"
+
+  /dashboard/status-breakdown:
+    get:
+      operationId: getStatusBreakdown
+      tags: [dashboard]
+      summary: Ticket count grouped by status
+      responses:
+        "200":
+          description: Status breakdown
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StatusCount"
+
+  /dashboard/whatsapp-status:
+    get:
+      operationId: getWhatsappStatus
+      tags: [dashboard]
+      summary: WhatsApp gateway connection status
+      responses:
+        "200":
+          description: WhatsApp connection state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WhatsappStatus"
+
+  /dashboard/recent-activity:
+    get:
+      operationId: getRecentActivity
+      tags: [dashboard]
+      summary: Last 5 ticket events (created or status changed)
+      responses:
+        "200":
+          description: Recent activity feed
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityItem"
+
+  /tickets:
+    get:
+      operationId: listTickets
+      tags: [tickets]
+      summary: List all tickets with optional filters
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: priority
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: List of tickets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Ticket"
+
+  /tickets/{id}:
+    get:
+      operationId: getTicket
+      tags: [tickets]
+      summary: Get a single ticket by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Ticket details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ticket"
+        "404":
+          description: Ticket not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /tickets/{id}/status:
+    patch:
+      operationId: updateTicketStatus
+      tags: [tickets]
+      summary: Update the status of a ticket
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TicketStatusUpdate"
+      responses:
+        "200":
+          description: Updated ticket
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ticket"
+        "404":
+          description: Ticket not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -31,6 +230,155 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
+    DashboardStats:
+      type: object
+      properties:
+        total_tickets:
+          type: integer
+        open_tickets:
+          type: integer
+        in_progress_tickets:
+          type: integer
+        resolved_today:
+          type: integer
+        high_priority_open:
+          type: integer
+        closed_tickets:
+          type: integer
+        messages_processed_today:
+          type: integer
+        avg_resolution_hours:
+          type: number
+      required:
+        - total_tickets
+        - open_tickets
+        - in_progress_tickets
+        - resolved_today
+        - high_priority_open
+        - closed_tickets
+        - messages_processed_today
+        - avg_resolution_hours
+
+    CategoryCount:
+      type: object
+      properties:
+        category:
+          type: string
+        count:
+          type: integer
+      required: [category, count]
+
+    PriorityCount:
+      type: object
+      properties:
+        priority:
+          type: string
+        count:
+          type: integer
+      required: [priority, count]
+
+    StatusCount:
+      type: object
+      properties:
+        status:
+          type: string
+        count:
+          type: integer
+      required: [status, count]
+
+    DailyCount:
+      type: object
+      properties:
+        date:
+          type: string
+          description: ISO date string YYYY-MM-DD
+        count:
+          type: integer
+      required: [date, count]
+
+    WhatsappStatus:
+      type: object
+      properties:
+        connected:
+          type: boolean
+        instance:
+          type: string
+        state:
+          type: string
+        api_url:
+          type: string
+      required: [connected, instance, state, api_url]
+
+    ActivityItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        ticket_id:
+          type: integer
+        event:
+          type: string
+          description: "created | status_changed | supervisor_action"
+        description:
+          type: string
+        category:
+          type: string
+        priority:
+          type: string
+        status:
+          type: string
+        timestamp:
+          type: string
+      required: [id, ticket_id, event, description, category, priority, status, timestamp]
+
+    Ticket:
+      type: object
+      properties:
+        id:
+          type: integer
+        message_text:
+          type: string
+        category:
+          type: string
+        priority:
+          type: string
+        status:
+          type: string
+        location:
+          type: string
+          nullable: true
+        reporter_name:
+          type: string
+          nullable: true
+        group_name:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+        updated_at:
+          type: string
+          nullable: true
+      required:
+        - id
+        - message_text
+        - category
+        - priority
+        - status
+        - created_at
+
+    TicketStatusUpdate:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [open, in_progress, resolved, delayed, closed]
+      required: [status]
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]

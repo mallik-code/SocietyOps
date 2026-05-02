@@ -6,6 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface HealthStatus {
-  status: string;
-}
+export type ListTicketsParams = {
+  status?: string;
+  priority?: string;
+  category?: string;
+  limit?: number;
+};
