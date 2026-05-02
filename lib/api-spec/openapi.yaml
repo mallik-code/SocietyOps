@@ -223,6 +223,190 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /policies/groups:
+    get:
+      operationId: listTrackedGroups
+      tags: [policies]
+      summary: List all tracked WhatsApp groups
+      responses:
+        "200":
+          description: Tracked groups
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TrackedGroup"
+    post:
+      operationId: addTrackedGroup
+      tags: [policies]
+      summary: Add a WhatsApp group to track
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TrackedGroupInput"
+      responses:
+        "201":
+          description: Group added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrackedGroup"
+        "409":
+          description: Group already tracked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /policies/groups/{id}:
+    patch:
+      operationId: updateTrackedGroup
+      tags: [policies]
+      summary: Enable or disable a tracked group
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TrackedItemPatch"
+      responses:
+        "200":
+          description: Updated group
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrackedGroup"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteTrackedGroup
+      tags: [policies]
+      summary: Remove a WhatsApp group from tracking
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeletedResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /policies/contacts:
+    get:
+      operationId: listTrackedContacts
+      tags: [policies]
+      summary: List all tracked individual contacts
+      responses:
+        "200":
+          description: Tracked contacts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TrackedContact"
+    post:
+      operationId: addTrackedContact
+      tags: [policies]
+      summary: Add an individual contact to track
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TrackedContactInput"
+      responses:
+        "201":
+          description: Contact added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrackedContact"
+        "409":
+          description: Contact already tracked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /policies/contacts/{id}:
+    patch:
+      operationId: updateTrackedContact
+      tags: [policies]
+      summary: Enable or disable a tracked contact
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TrackedItemPatch"
+      responses:
+        "200":
+          description: Updated contact
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrackedContact"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteTrackedContact
+      tags: [policies]
+      summary: Remove a contact from tracking
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeletedResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -375,6 +559,92 @@ components:
           type: string
           enum: [open, in_progress, resolved, delayed, closed]
       required: [status]
+
+    TrackedGroup:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        group_id:
+          type: string
+          description: WhatsApp JID (e.g. 120363012345678901@g.us)
+        description:
+          type: string
+          nullable: true
+        enabled:
+          type: boolean
+        message_count:
+          type: integer
+        created_at:
+          type: string
+      required: [id, name, group_id, enabled, message_count, created_at]
+
+    TrackedGroupInput:
+      type: object
+      properties:
+        name:
+          type: string
+        group_id:
+          type: string
+        description:
+          type: string
+          nullable: true
+      required: [name, group_id]
+
+    TrackedContact:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        phone:
+          type: string
+          description: Phone in E.164 format (e.g. +971501234567)
+        description:
+          type: string
+          nullable: true
+        enabled:
+          type: boolean
+        message_count:
+          type: integer
+        created_at:
+          type: string
+      required: [id, name, phone, enabled, message_count, created_at]
+
+    TrackedContactInput:
+      type: object
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+        description:
+          type: string
+          nullable: true
+      required: [name, phone]
+
+    TrackedItemPatch:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+
+    DeletedResponse:
+      type: object
+      properties:
+        deleted:
+          type: boolean
+        id:
+          type: integer
+      required: [deleted, id]
 
     ErrorResponse:
       type: object

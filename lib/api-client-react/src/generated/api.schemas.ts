@@ -88,6 +88,51 @@ export interface TicketStatusUpdate {
   status: TicketStatusUpdateStatus;
 }
 
+export interface TrackedGroup {
+  id: number;
+  name: string;
+  /** WhatsApp JID (e.g. 120363012345678901@g.us) */
+  group_id: string;
+  description?: string | null;
+  enabled: boolean;
+  message_count: number;
+  created_at: string;
+}
+
+export interface TrackedGroupInput {
+  name: string;
+  group_id: string;
+  description?: string | null;
+}
+
+export interface TrackedContact {
+  id: number;
+  name: string;
+  /** Phone in E.164 format (e.g. +971501234567) */
+  phone: string;
+  description?: string | null;
+  enabled: boolean;
+  message_count: number;
+  created_at: string;
+}
+
+export interface TrackedContactInput {
+  name: string;
+  phone: string;
+  description?: string | null;
+}
+
+export interface TrackedItemPatch {
+  enabled?: boolean;
+  name?: string;
+  description?: string | null;
+}
+
+export interface DeletedResponse {
+  deleted: boolean;
+  id: number;
+}
+
 export interface ErrorResponse {
   error: string;
 }

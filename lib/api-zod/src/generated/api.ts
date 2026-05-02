@@ -166,3 +166,127 @@ export const UpdateTicketStatusResponse = zod.object({
   created_at: zod.string(),
   updated_at: zod.string().nullish(),
 });
+
+/**
+ * @summary List all tracked WhatsApp groups
+ */
+export const ListTrackedGroupsResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  group_id: zod
+    .string()
+    .describe("WhatsApp JID (e.g. 120363012345678901@g.us)"),
+  description: zod.string().nullish(),
+  enabled: zod.boolean(),
+  message_count: zod.number(),
+  created_at: zod.string(),
+});
+export const ListTrackedGroupsResponse = zod.array(
+  ListTrackedGroupsResponseItem,
+);
+
+/**
+ * @summary Add a WhatsApp group to track
+ */
+export const AddTrackedGroupBody = zod.object({
+  name: zod.string(),
+  group_id: zod.string(),
+  description: zod.string().nullish(),
+});
+
+/**
+ * @summary Enable or disable a tracked group
+ */
+export const UpdateTrackedGroupParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateTrackedGroupBody = zod.object({
+  enabled: zod.boolean().optional(),
+  name: zod.string().optional(),
+  description: zod.string().nullish(),
+});
+
+export const UpdateTrackedGroupResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  group_id: zod
+    .string()
+    .describe("WhatsApp JID (e.g. 120363012345678901@g.us)"),
+  description: zod.string().nullish(),
+  enabled: zod.boolean(),
+  message_count: zod.number(),
+  created_at: zod.string(),
+});
+
+/**
+ * @summary Remove a WhatsApp group from tracking
+ */
+export const DeleteTrackedGroupParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteTrackedGroupResponse = zod.object({
+  deleted: zod.boolean(),
+  id: zod.number(),
+});
+
+/**
+ * @summary List all tracked individual contacts
+ */
+export const ListTrackedContactsResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  phone: zod.string().describe("Phone in E.164 format (e.g. +971501234567)"),
+  description: zod.string().nullish(),
+  enabled: zod.boolean(),
+  message_count: zod.number(),
+  created_at: zod.string(),
+});
+export const ListTrackedContactsResponse = zod.array(
+  ListTrackedContactsResponseItem,
+);
+
+/**
+ * @summary Add an individual contact to track
+ */
+export const AddTrackedContactBody = zod.object({
+  name: zod.string(),
+  phone: zod.string(),
+  description: zod.string().nullish(),
+});
+
+/**
+ * @summary Enable or disable a tracked contact
+ */
+export const UpdateTrackedContactParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateTrackedContactBody = zod.object({
+  enabled: zod.boolean().optional(),
+  name: zod.string().optional(),
+  description: zod.string().nullish(),
+});
+
+export const UpdateTrackedContactResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  phone: zod.string().describe("Phone in E.164 format (e.g. +971501234567)"),
+  description: zod.string().nullish(),
+  enabled: zod.boolean(),
+  message_count: zod.number(),
+  created_at: zod.string(),
+});
+
+/**
+ * @summary Remove a contact from tracking
+ */
+export const DeleteTrackedContactParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteTrackedContactResponse = zod.object({
+  deleted: zod.boolean(),
+  id: zod.number(),
+});

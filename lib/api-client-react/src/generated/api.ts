@@ -21,6 +21,7 @@ import type {
   CategoryCount,
   DailyCount,
   DashboardStats,
+  DeletedResponse,
   ErrorResponse,
   HealthStatus,
   ListTicketsParams,
@@ -28,6 +29,11 @@ import type {
   StatusCount,
   Ticket,
   TicketStatusUpdate,
+  TrackedContact,
+  TrackedContactInput,
+  TrackedGroup,
+  TrackedGroupInput,
+  TrackedItemPatch,
   WhatsappStatus,
 } from "./api.schemas";
 
@@ -904,4 +910,668 @@ export const useUpdateTicketStatus = <
   TContext
 > => {
   return useMutation(getUpdateTicketStatusMutationOptions(options));
+};
+
+/**
+ * @summary List all tracked WhatsApp groups
+ */
+export const getListTrackedGroupsUrl = () => {
+  return `/api/policies/groups`;
+};
+
+export const listTrackedGroups = async (
+  options?: RequestInit,
+): Promise<TrackedGroup[]> => {
+  return customFetch<TrackedGroup[]>(getListTrackedGroupsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListTrackedGroupsQueryKey = () => {
+  return [`/api/policies/groups`] as const;
+};
+
+export const getListTrackedGroupsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listTrackedGroups>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listTrackedGroups>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListTrackedGroupsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listTrackedGroups>>
+  > = ({ signal }) => listTrackedGroups({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listTrackedGroups>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListTrackedGroupsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listTrackedGroups>>
+>;
+export type ListTrackedGroupsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all tracked WhatsApp groups
+ */
+
+export function useListTrackedGroups<
+  TData = Awaited<ReturnType<typeof listTrackedGroups>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listTrackedGroups>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListTrackedGroupsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Add a WhatsApp group to track
+ */
+export const getAddTrackedGroupUrl = () => {
+  return `/api/policies/groups`;
+};
+
+export const addTrackedGroup = async (
+  trackedGroupInput: TrackedGroupInput,
+  options?: RequestInit,
+): Promise<TrackedGroup> => {
+  return customFetch<TrackedGroup>(getAddTrackedGroupUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(trackedGroupInput),
+  });
+};
+
+export const getAddTrackedGroupMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addTrackedGroup>>,
+    TError,
+    { data: BodyType<TrackedGroupInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof addTrackedGroup>>,
+  TError,
+  { data: BodyType<TrackedGroupInput> },
+  TContext
+> => {
+  const mutationKey = ["addTrackedGroup"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof addTrackedGroup>>,
+    { data: BodyType<TrackedGroupInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return addTrackedGroup(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AddTrackedGroupMutationResult = NonNullable<
+  Awaited<ReturnType<typeof addTrackedGroup>>
+>;
+export type AddTrackedGroupMutationBody = BodyType<TrackedGroupInput>;
+export type AddTrackedGroupMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Add a WhatsApp group to track
+ */
+export const useAddTrackedGroup = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addTrackedGroup>>,
+    TError,
+    { data: BodyType<TrackedGroupInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof addTrackedGroup>>,
+  TError,
+  { data: BodyType<TrackedGroupInput> },
+  TContext
+> => {
+  return useMutation(getAddTrackedGroupMutationOptions(options));
+};
+
+/**
+ * @summary Enable or disable a tracked group
+ */
+export const getUpdateTrackedGroupUrl = (id: number) => {
+  return `/api/policies/groups/${id}`;
+};
+
+export const updateTrackedGroup = async (
+  id: number,
+  trackedItemPatch: TrackedItemPatch,
+  options?: RequestInit,
+): Promise<TrackedGroup> => {
+  return customFetch<TrackedGroup>(getUpdateTrackedGroupUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(trackedItemPatch),
+  });
+};
+
+export const getUpdateTrackedGroupMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateTrackedGroup>>,
+    TError,
+    { id: number; data: BodyType<TrackedItemPatch> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateTrackedGroup>>,
+  TError,
+  { id: number; data: BodyType<TrackedItemPatch> },
+  TContext
+> => {
+  const mutationKey = ["updateTrackedGroup"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateTrackedGroup>>,
+    { id: number; data: BodyType<TrackedItemPatch> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateTrackedGroup(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateTrackedGroupMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateTrackedGroup>>
+>;
+export type UpdateTrackedGroupMutationBody = BodyType<TrackedItemPatch>;
+export type UpdateTrackedGroupMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Enable or disable a tracked group
+ */
+export const useUpdateTrackedGroup = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateTrackedGroup>>,
+    TError,
+    { id: number; data: BodyType<TrackedItemPatch> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateTrackedGroup>>,
+  TError,
+  { id: number; data: BodyType<TrackedItemPatch> },
+  TContext
+> => {
+  return useMutation(getUpdateTrackedGroupMutationOptions(options));
+};
+
+/**
+ * @summary Remove a WhatsApp group from tracking
+ */
+export const getDeleteTrackedGroupUrl = (id: number) => {
+  return `/api/policies/groups/${id}`;
+};
+
+export const deleteTrackedGroup = async (
+  id: number,
+  options?: RequestInit,
+): Promise<DeletedResponse> => {
+  return customFetch<DeletedResponse>(getDeleteTrackedGroupUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteTrackedGroupMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteTrackedGroup>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteTrackedGroup>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteTrackedGroup"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteTrackedGroup>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteTrackedGroup(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteTrackedGroupMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteTrackedGroup>>
+>;
+
+export type DeleteTrackedGroupMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Remove a WhatsApp group from tracking
+ */
+export const useDeleteTrackedGroup = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteTrackedGroup>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteTrackedGroup>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteTrackedGroupMutationOptions(options));
+};
+
+/**
+ * @summary List all tracked individual contacts
+ */
+export const getListTrackedContactsUrl = () => {
+  return `/api/policies/contacts`;
+};
+
+export const listTrackedContacts = async (
+  options?: RequestInit,
+): Promise<TrackedContact[]> => {
+  return customFetch<TrackedContact[]>(getListTrackedContactsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListTrackedContactsQueryKey = () => {
+  return [`/api/policies/contacts`] as const;
+};
+
+export const getListTrackedContactsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listTrackedContacts>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listTrackedContacts>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListTrackedContactsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listTrackedContacts>>
+  > = ({ signal }) => listTrackedContacts({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listTrackedContacts>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListTrackedContactsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listTrackedContacts>>
+>;
+export type ListTrackedContactsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all tracked individual contacts
+ */
+
+export function useListTrackedContacts<
+  TData = Awaited<ReturnType<typeof listTrackedContacts>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listTrackedContacts>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListTrackedContactsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Add an individual contact to track
+ */
+export const getAddTrackedContactUrl = () => {
+  return `/api/policies/contacts`;
+};
+
+export const addTrackedContact = async (
+  trackedContactInput: TrackedContactInput,
+  options?: RequestInit,
+): Promise<TrackedContact> => {
+  return customFetch<TrackedContact>(getAddTrackedContactUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(trackedContactInput),
+  });
+};
+
+export const getAddTrackedContactMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addTrackedContact>>,
+    TError,
+    { data: BodyType<TrackedContactInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof addTrackedContact>>,
+  TError,
+  { data: BodyType<TrackedContactInput> },
+  TContext
+> => {
+  const mutationKey = ["addTrackedContact"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof addTrackedContact>>,
+    { data: BodyType<TrackedContactInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return addTrackedContact(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AddTrackedContactMutationResult = NonNullable<
+  Awaited<ReturnType<typeof addTrackedContact>>
+>;
+export type AddTrackedContactMutationBody = BodyType<TrackedContactInput>;
+export type AddTrackedContactMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Add an individual contact to track
+ */
+export const useAddTrackedContact = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addTrackedContact>>,
+    TError,
+    { data: BodyType<TrackedContactInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof addTrackedContact>>,
+  TError,
+  { data: BodyType<TrackedContactInput> },
+  TContext
+> => {
+  return useMutation(getAddTrackedContactMutationOptions(options));
+};
+
+/**
+ * @summary Enable or disable a tracked contact
+ */
+export const getUpdateTrackedContactUrl = (id: number) => {
+  return `/api/policies/contacts/${id}`;
+};
+
+export const updateTrackedContact = async (
+  id: number,
+  trackedItemPatch: TrackedItemPatch,
+  options?: RequestInit,
+): Promise<TrackedContact> => {
+  return customFetch<TrackedContact>(getUpdateTrackedContactUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(trackedItemPatch),
+  });
+};
+
+export const getUpdateTrackedContactMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateTrackedContact>>,
+    TError,
+    { id: number; data: BodyType<TrackedItemPatch> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateTrackedContact>>,
+  TError,
+  { id: number; data: BodyType<TrackedItemPatch> },
+  TContext
+> => {
+  const mutationKey = ["updateTrackedContact"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateTrackedContact>>,
+    { id: number; data: BodyType<TrackedItemPatch> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateTrackedContact(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateTrackedContactMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateTrackedContact>>
+>;
+export type UpdateTrackedContactMutationBody = BodyType<TrackedItemPatch>;
+export type UpdateTrackedContactMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Enable or disable a tracked contact
+ */
+export const useUpdateTrackedContact = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateTrackedContact>>,
+    TError,
+    { id: number; data: BodyType<TrackedItemPatch> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateTrackedContact>>,
+  TError,
+  { id: number; data: BodyType<TrackedItemPatch> },
+  TContext
+> => {
+  return useMutation(getUpdateTrackedContactMutationOptions(options));
+};
+
+/**
+ * @summary Remove a contact from tracking
+ */
+export const getDeleteTrackedContactUrl = (id: number) => {
+  return `/api/policies/contacts/${id}`;
+};
+
+export const deleteTrackedContact = async (
+  id: number,
+  options?: RequestInit,
+): Promise<DeletedResponse> => {
+  return customFetch<DeletedResponse>(getDeleteTrackedContactUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteTrackedContactMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteTrackedContact>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteTrackedContact>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteTrackedContact"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteTrackedContact>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteTrackedContact(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteTrackedContactMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteTrackedContact>>
+>;
+
+export type DeleteTrackedContactMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Remove a contact from tracking
+ */
+export const useDeleteTrackedContact = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteTrackedContact>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteTrackedContact>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteTrackedContactMutationOptions(options));
 };
