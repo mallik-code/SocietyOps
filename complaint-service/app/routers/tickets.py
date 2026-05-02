@@ -71,10 +71,24 @@ def delete_ticket(ticket_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Ticket not found")
     db.delete(ticket)
     db.commit()
-@router.delete("", status_code=status.HTTP_204_NO_CONTENT, summary="Clear all tickets")
-def clear_all_tickets(db: Session = Depends(get_db)):
+@router.delete("", status_code=status.HTTP_204_NO_CONTENT, summary="Clear all test tickets")
+def clear_all_test_tickets(db: Session = Depends(get_db)):
     from app.models import Ticket, MessageLog, SupervisorAction
-    db.query(SupervisorAction).delete()
-    db.query(MessageLog).delete()
-    db.query(Ticket).delete()
+    # Only delete records marked as test data
+    db.query(SupervisorAction).filter(SupervisorAction.is_test == True).delete(synchronize_session=False)
+    db.query(MessageLog).filter(MessageLog.is_test == True).delete(synchronize_session=False)
+    db.query(Ticket).filter(Ticket.is_test == True).delete(synchronize_session=False)
     db.commit()
+
+
+@router.post("/seed", status_code=status.HTTP_201_CREATED, summary="Seed test tickets")
+def seed_tickets(payload: List[TicketCreate], db: Session = Depends(get_db)):
+    """Bulk import tickets marked as test data."""
+    new_tickets = []
+    for p in payload:
+        ticket = Ticket(**p.model_dump(), is_test=True)
+        new_tickets.append(ticket)
+    
+    db.add_all(new_tickets)
+    db.commit()
+    return {"success": True, "count": len(new_tickets)}

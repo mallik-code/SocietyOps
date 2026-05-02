@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from sqlalchemy import (
-    Column, Integer, String, Text, DateTime, ForeignKey, Enum as SAEnum
+    Column, Integer, String, Text, DateTime, ForeignKey, Boolean, Enum as SAEnum
 )
 from sqlalchemy.orm import relationship
 import enum
@@ -44,6 +44,7 @@ class Ticket(Base):
     updated_at = Column(DateTime(timezone=True), nullable=False, default=_utcnow, onupdate=_utcnow)
     reporter_name = Column(String(255), nullable=True)
     group_name = Column(String(255), nullable=True)
+    is_test = Column(Boolean, default=False)
 
     supervisor_actions = relationship("SupervisorAction", back_populates="ticket", cascade="all, delete-orphan")
 
@@ -56,6 +57,7 @@ class MessageLog(Base):
     sender = Column(String(255), nullable=True)
     group_name = Column(String(255), nullable=True)
     timestamp = Column(DateTime(timezone=True), nullable=False, default=_utcnow)
+    is_test = Column(Boolean, default=False)
 
 
 class SupervisorAction(Base):
@@ -65,5 +67,6 @@ class SupervisorAction(Base):
     ticket_id = Column(Integer, ForeignKey("tickets.id", ondelete="CASCADE"), nullable=False, index=True)
     action = Column(SAEnum(SupervisorActionType), nullable=False)
     timestamp = Column(DateTime(timezone=True), nullable=False, default=_utcnow)
+    is_test = Column(Boolean, default=False)
 
     ticket = relationship("Ticket", back_populates="supervisor_actions")

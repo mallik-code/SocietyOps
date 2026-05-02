@@ -41,7 +41,7 @@ export function Dashboard({ isDark }: DashboardProps) {
   const { mutate: clearData, isPending: isClearing } = useClearTestData({
     mutation: {
       onSuccess: () => {
-        toast({ title: "Test data cleared", description: "All tables are now empty." });
+        toast({ title: "Test data cleared", description: "All test records have been removed. Live data is preserved." });
         queryClient.clear();
         setConfirmClear(false);
       },
@@ -128,7 +128,7 @@ export function Dashboard({ isDark }: DashboardProps) {
 
           {/* Test data controls */}
           <div className="flex items-center gap-1.5 pl-2 border-l border-border">
-            <span className="text-[11px] text-muted-foreground font-medium pr-0.5">Test data:</span>
+            <span className="text-[11px] text-muted-foreground font-medium pr-0.5">Development:</span>
             <button
               onClick={() => importData()}
               disabled={isImporting}
@@ -136,7 +136,7 @@ export function Dashboard({ isDark }: DashboardProps) {
               className="flex items-center gap-1 px-2.5 h-[30px] rounded-md border border-border text-[12px] font-medium text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors disabled:opacity-50"
             >
               <DatabaseZap className={`w-3.5 h-3.5 ${isImporting ? "animate-pulse" : ""}`} />
-              {isImporting ? "Importing…" : "Import"}
+              {isImporting ? "Importing…" : "Import Test Data"}
             </button>
 
             {confirmClear ? (
@@ -147,7 +147,7 @@ export function Dashboard({ isDark }: DashboardProps) {
                   disabled={isClearing}
                   className="flex items-center gap-1 px-2.5 h-[30px] rounded-md border border-destructive text-[12px] font-semibold text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
                 >
-                  {isClearing ? "Clearing…" : "Yes, clear"}
+                  {isClearing ? "Clearing…" : "Yes, clear test data"}
                 </button>
                 <button
                   onClick={() => setConfirmClear(false)}
@@ -159,11 +159,11 @@ export function Dashboard({ isDark }: DashboardProps) {
             ) : (
               <button
                 onClick={() => setConfirmClear(true)}
-                title="Delete all test data"
+                title="Delete only test data"
                 className="flex items-center gap-1 px-2.5 h-[30px] rounded-md border border-border text-[12px] font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                Clear
+                Clear Test Data
               </button>
             )}
           </div>

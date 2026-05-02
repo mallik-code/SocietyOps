@@ -56,6 +56,32 @@ export class TicketRepository {
   }
 
   /**
+   * Seed test tickets in the core service.
+   */
+  public async seedTickets(tickets: Ticket[]): Promise<void> {
+    try {
+      const response = await fetch(`${COMPLAINT_SERVICE_URL}/tickets/seed`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(tickets.map(t => ({
+          message_text: t.message_text,
+          category: t.category,
+          priority: t.priority,
+          location: t.location,
+          status: t.status,
+          reporter_name: t.reporter_name,
+          group_name: t.group_name
+        }))),
+      });
+      if (!response.ok) {
+        logger.error({ status: response.status }, "Failed to seed tickets in complaint-service");
+      }
+    } catch (err) {
+      logger.error({ err }, "Error connecting to complaint-service to seed tickets");
+    }
+  }
+
+  /**
    * Clear all tickets in the core service.
    */
   public async clearTickets(): Promise<void> {

@@ -17,37 +17,41 @@ function replaceArray<T>(target: T[], source: T[]): void {
 
 // ─── POST /admin/seed  →  restore all test data from CSV files ────────────────
 
-router.post("/admin/seed", (_req, res): void => {
+router.post("/admin/seed", async (_req, res): Promise<void> => {
   try {
-    replaceArray(tickets as any[], loadTickets());
-    replaceArray(rawMessages as any[], loadRawMessages());
-    replaceArray(trackedGroups as any[], loadTrackedGroups());
-    replaceArray(trackedContacts as any[], loadTrackedContacts());
+    const testTickets = loadTickets();
+    const testMessages = loadRawMessages();
+    const testGroups = loadTrackedGroups();
+    const testContacts = loadTrackedContacts();
+
+    replaceArray(tickets as any[], testTickets);
+    replaceArray(rawMessages as any[], testMessages);
+    replaceArray(trackedGroups as any[], testGroups);
+    replaceArray(trackedContacts as any[], testContacts);
+
+    // Also seed the Python service so the Tickets table is populated
+    await ticketRepository.seedTickets(testTickets as any[]);
+
     res.json({ success: true, message: "Test data imported from CSV files" });
   } catch (err) {
     res.status(500).json({ success: false, message: String(err) });
   }
 });
 
-// ─── DELETE /admin/seed  →  clear all data ────────────────────────────────────
+// ─── DELETE /admin/seed  →  clear only test data ────────────────────────────────────
 
 router.delete("/admin/seed", async (_req, res): Promise<void> => {
   try {
-    // 1. Clear in-memory arrays in Express
-    replaceArray(tickets as any[], []);
-    replaceArray(rawMessages as any[], []);
-    replaceArray(trackedGroups as any[], []);
-    replaceArray(trackedContacts as any[], []);
+    // 1. Clear in-memory arrays in Express (only items marked as is_test)
+    replaceArray(tickets as any[], (tickets as any[]).filter((t: any) => !t.is_test));
+    replaceArray(rawMessages as any[], (rawMessages as any[]).filter((m: any) => !m.is_test));
+    replaceArray(trackedGroups as any[], (trackedGroups as any[]).filter((g: any) => !g.is_test));
+    replaceArray(trackedContacts as any[], (trackedContacts as any[]).filter((c: any) => !c.is_test));
 
     // 2. Clear data in the repositories (includes calling Python core engine)
-    messageRepository.clearAll();
     await ticketRepository.clearTickets();
 
-    // 3. Clear DB tables (AI chat history)
-    await db.delete(messages);
-    await db.delete(conversations);
-
-    res.json({ success: true, message: "All test data cleared" });
+    res.json({ success: true, message: "Test data cleared, live configurations preserved" });
   } catch (err) {
     console.error("Failed to clear data", err);
     res.status(500).json({ success: false, message: String(err) });

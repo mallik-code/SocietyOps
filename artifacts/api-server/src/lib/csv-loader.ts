@@ -96,6 +96,7 @@ export function loadTickets() {
     group_name: nullable(r.group_name),
     created_at: hoursAgo(r.created_hours_ago),
     updated_at: r.updated_hours_ago?.trim() ? hoursAgo(r.updated_hours_ago) : null,
+    is_test: true,
   }));
 }
 
@@ -107,6 +108,7 @@ export function loadRawMessages() {
     group_name: nullable(r.group_name),
     category: nullable(r.category),
     timestamp: hoursAgo(r.created_hours_ago),
+    is_test: true,
   }));
 }
 
@@ -119,6 +121,7 @@ export function loadTrackedGroups() {
     enabled: r.enabled === "true",
     message_count: parseInt(r.message_count, 10),
     created_at: daysAgo(r.created_days_ago),
+    is_test: true,
   }));
 }
 
@@ -131,5 +134,6 @@ export function loadTrackedContacts() {
     enabled: r.enabled === "true",
     message_count: parseInt(r.message_count, 10),
     created_at: daysAgo(r.created_days_ago),
+    is_test: true,
   }));
 }
