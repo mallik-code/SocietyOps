@@ -4,79 +4,152 @@ version: "3.9"
 # WhatsApp Complaint Management System — Docker Compose
 #
 # Services:
+#   evolution   Self-hosted WhatsApp gateway (Evolution API v2)
 #   api         FastAPI complaint management backend
-#   nginx       Reverse proxy / rate limiter (optional, comment out if unused)
 #
-# Usage:
-#   docker compose up --build          # first run
-#   docker compose up -d               # detached
-#   docker compose logs -f api         # follow logs
-#   docker compose down -v             # stop + remove volumes
+# Quick start:
+#   1. cp .env.example .env  &&  edit .env
+#   2. docker compose up --build
+#   3. Open http://localhost:8080/docs → create instance → scan QR code
+#   4. API is live at http://localhost:8000
+#
+# Useful commands:
+#   docker compose logs -f api          follow API logs
+#   docker compose logs -f evolution    follow Evolution API logs
+#   docker compose down                 stop (keeps volumes)
+#   docker compose down -v              stop + delete all data
 # ─────────────────────────────────────────────────────────────────────────────
+
+networks:
+  complaint_net:
+    driver: bridge
+
+volumes:
+  sqlite_data:
+    driver: local
+  evolution_data:
+    driver: local
+
 
 services:
 
-  # ── FastAPI backend ──────────────────────────────────────────────────────────
+  # ── Evolution API — self-hosted WhatsApp gateway ──────────────────────────
+  evolution:
+    image: atendai/evolution-api:v2.2.3
+    container_name: complaint_evolution
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    networks:
+      - complaint_net
+    volumes:
+      - evolution_data:/evolution/instances
+    environment:
+      # ── Server ────────────────────────────────────────────────────────────
+      # PUBLIC URL where Evolution API is reachable from the outside world.
+      # For local Docker use localhost:8080. Change for production.
+      SERVER_URL: ${EVOLUTION_SERVER_URL:-http://localhost:8080}
+
+      # ── Auth ──────────────────────────────────────────────────────────────
+      AUTHENTICATION_TYPE: apikey
+      AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY:-change-me-strong-key-123}
+      AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES: "true"
+
+      # ── Global webhook → points to our FastAPI service ────────────────────
+      # Inside the Docker network, the api service is reachable as http://api:8000
+      WEBHOOK_GLOBAL_ENABLED: "true"
+      WEBHOOK_GLOBAL_URL: http://api:8000/evolution/events
+      WEBHOOK_GLOBAL_WEBHOOK_BY_EVENTS: "false"
+
+      # Only forward the events we care about
+      WEBHOOK_EVENTS_MESSAGES_UPSERT: "true"
+      WEBHOOK_EVENTS_MESSAGES_UPDATE: "false"
+      WEBHOOK_EVENTS_MESSAGES_DELETE: "false"
+      WEBHOOK_EVENTS_SEND_MESSAGE: "false"
+      WEBHOOK_EVENTS_CONTACTS_UPDATE: "false"
+      WEBHOOK_EVENTS_PRESENCE_UPDATE: "false"
+      WEBHOOK_EVENTS_CHATS_UPDATE: "false"
+      WEBHOOK_EVENTS_CHATS_DELETE: "false"
+      WEBHOOK_EVENTS_GROUPS_UPDATE: "false"
+      WEBHOOK_EVENTS_GROUP_PARTICIPANTS_UPDATE: "false"
+      WEBHOOK_EVENTS_CONNECTION_UPDATE: "true"
+      WEBHOOK_EVENTS_CALL: "false"
+      WEBHOOK_EVENTS_NEW_JWT_TOKEN: "false"
+
+      # ── Session / device ──────────────────────────────────────────────────
+      CONFIG_SESSION_PHONE_CLIENT: ComplaintBot
+      CONFIG_SESSION_PHONE_NAME: Chrome
+
+      # ── Storage ───────────────────────────────────────────────────────────
+      STORE_MESSAGES: "true"
+      STORE_MESSAGE_UP: "true"
+      STORE_CONTACTS: "true"
+      STORE_CHATS: "true"
+
+      # ── Logging ───────────────────────────────────────────────────────────
+      LOG_LEVEL: ERROR
+      LOG_COLOR: "false"
+      LOG_BAILEYS: error
+      DEL_INSTANCE: "false"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider",
+             "http://localhost:8080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+
+  # ── FastAPI backend ───────────────────────────────────────────────────────
   api:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: complaint_api
     restart: unless-stopped
+    depends_on:
+      evolution:
+        condition: service_healthy
     ports:
       - "8000:8000"
+    networks:
+      - complaint_net
+    volumes:
+      - sqlite_data:/app/data
     environment:
       DATABASE_URL: sqlite:////app/data/complaints.db
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       SQL_ECHO: ${SQL_ECHO:-false}
       CORS_ORIGINS: ${CORS_ORIGINS:-*}
+
+      # Evolution API connection (inside Docker network)
+      EVOLUTION_API_URL: http://evolution:8080
+      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY:-change-me-strong-key-123}
+      EVOLUTION_INSTANCE: ${EVOLUTION_INSTANCE:-complaint-bot}
+      EVOLUTION_TIMEOUT: ${EVOLUTION_TIMEOUT:-10}
+
       # Policy engine
       READ_ONLY_MODE: ${READ_ONLY_MODE:-false}
       MIN_CONFIDENCE: ${MIN_CONFIDENCE:-0.7}
       ALLOW_CASUAL_REPLIES: ${ALLOW_CASUAL_REPLIES:-false}
       MAX_MESSAGE_LENGTH: ${MAX_MESSAGE_LENGTH:-2000}
+      ALLOWED_GROUPS: ${ALLOWED_GROUPS:-*}
       ALLOWED_SENDERS: ${ALLOWED_SENDERS:-*}
       BLOCK_KEYWORDS: ${BLOCK_KEYWORDS:-}
+
       # GROQ AI classifier
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       GROQ_MODEL: ${GROQ_MODEL:-llama3-8b-8192}
-      # OpenClaw integration
-      OPENCLAW_API_URL: ${OPENCLAW_API_URL:-https://api.openclaw.io}
-      OPENCLAW_API_KEY: ${OPENCLAW_API_KEY:-}
-      OPENCLAW_TIMEOUT: ${OPENCLAW_TIMEOUT:-10}
+
       # Daily report scheduler
       REPORT_GROUP_ID: ${REPORT_GROUP_ID:-}
       REPORT_CRON_HOUR: ${REPORT_CRON_HOUR:-20}
       REPORT_CRON_MINUTE: ${REPORT_CRON_MINUTE:-0}
       REPORT_TIMEZONE: ${REPORT_TIMEZONE:-Asia/Karachi}
-      # Group filtering (* = all groups allowed)
-      ALLOWED_GROUPS: ${ALLOWED_GROUPS:-*}
-    volumes:
-      - sqlite_data:/app/data               # persistent SQLite database
     healthcheck:
       test: ["CMD", "python", "-c",
              "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 10s
-
-  # ── Nginx reverse proxy (optional) ───────────────────────────────────────────
-  # Uncomment to enable. Useful for production deployments to add rate limiting,
-  # TLS termination, and access logs in front of the API.
-  #
-  # nginx:
-  #   image: nginx:1.27-alpine
-  #   container_name: complaint_nginx
-  #   restart: unless-stopped
-  #   ports:
-  #     - "80:80"
-  #   volumes:
-  #     - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-  #   depends_on:
-  #     api:
-  #       condition: service_healthy
-
-volumes:
-  sqlite_data:
-    driver: local
+      start_period: 15s

@@ -1,6 +1,8 @@
 # WhatsApp Complaint Management System
 
-A backend service that receives WhatsApp messages via **OpenClaw**, classifies them using **GROQ AI**, and manages complaint tickets — complete with supervisor workflows, a daily reporting scheduler, and a configurable policy/safety engine.
+A fully self-hosted backend that receives WhatsApp messages via **Evolution API** (open-source WhatsApp gateway running in Docker), classifies them using **GROQ AI**, and manages complaint tickets — with supervisor workflows, a daily reporting scheduler, and a configurable policy/safety engine.
+
+No third-party SaaS required. Everything runs on your own machine or server.
 
 ---
 
@@ -8,7 +10,7 @@ A backend service that receives WhatsApp messages via **OpenClaw**, classifies t
 
 Residents of a building, tower, or community send complaints to a WhatsApp group (e.g. "Lift is broken on 3rd floor"). This service:
 
-1. **Receives** the message from OpenClaw (a WhatsApp automation platform)
+1. **Receives** the message from Evolution API (self-hosted WhatsApp gateway)
 2. **Classifies** it using GROQ's LLaMA AI — is it a complaint? What category, priority, location?
 3. **Creates a ticket** in SQLite if it passes the policy checks
 4. **Sends a WhatsApp reply** back to the group confirming the ticket number
@@ -19,10 +21,13 @@ Residents of a building, tower, or community send complaints to a WhatsApp group
 Resident types in WhatsApp group
         │
         ▼
-   OpenClaw webhook → POST /openclaw/events
+   Evolution API (Docker container, port 8080)
+        │  forwards via HTTP webhook
+        ▼
+   POST /evolution/events  (our FastAPI service)
         │
         ▼
-   Policy Engine (group filter, sender filter, block keywords, READ_ONLY mode)
+   Policy Engine Phase 1 (group filter, sender filter, block keywords, READ_ONLY)
         │
         ▼
    GROQ AI Classifier (category, priority, location, confidence)
@@ -30,8 +35,36 @@ Resident types in WhatsApp group
         ▼
    Policy Engine Phase 2 (is_complaint? confidence >= 0.7?)
         │
-        ├── YES → Create Ticket in SQLite → Reply to group ✅
+        ├── YES → Create Ticket in SQLite → Send WhatsApp reply ✅
         └── NO  → Log only, no reply
+```
+
+---
+
+## Architecture — Two Docker Containers
+
+```
+┌─────────────────────────────────────────────────────┐
+│                Docker Network: complaint_net          │
+│                                                       │
+│  ┌──────────────────────┐   webhook POST             │
+│  │  Evolution API       │──────────────────────────► │
+│  │  port 8080           │   http://api:8000           │
+│  │  (WhatsApp gateway)  │   /evolution/events        │
+│  └──────────────────────┘                            │
+│            ▲                                          │
+│            │ send reply                              │
+│            │                                          │
+│  ┌──────────────────────┐                            │
+│  │  FastAPI + SQLite    │                            │
+│  │  port 8000           │                            │
+│  │  (complaint backend) │                            │
+│  └──────────────────────┘                            │
+└─────────────────────────────────────────────────────┘
+        │                       │
+        ▼                       ▼
+ localhost:8080           localhost:8000
+ (Evolution UI/API)       (Complaint API + Swagger)
 ```
 
 ---
@@ -46,7 +79,8 @@ Resident types in WhatsApp group
 | Database | SQLite via SQLAlchemy 2.x ORM |
 | Data validation | Pydantic v2 |
 | AI classifier | GROQ API (`groq==0.13.0`) — LLaMA 3 models |
-| WhatsApp integration | OpenClaw (via HTTP/httpx) |
+| WhatsApp gateway | Evolution API v2 (self-hosted, Docker) |
+| HTTP client | httpx (async) |
 | Scheduler | APScheduler 3.x (AsyncIOScheduler) |
 | Timezone data | tzdata (cross-platform tz support) |
 | Containerisation | Docker (multi-stage build) + Docker Compose |
@@ -63,15 +97,17 @@ complaint-service/
 │   ├── models.py                      # ORM models: MessageLog, Ticket
 │   ├── schemas.py                     # Pydantic request/response schemas
 │   ├── routers/
-│   │   ├── openclaw.py                # POST /openclaw/events  (main integration)
-│   │   ├── webhooks.py                # POST /webhook/message  (direct webhook)
+│   │   ├── evolution.py               # POST /evolution/events  ← main webhook
+│   │   ├── openclaw.py                # POST /openclaw/events   (legacy / alternative)
+│   │   ├── webhooks.py                # POST /webhook/message   (direct testing)
 │   │   ├── tickets.py                 # CRUD for /tickets
 │   │   ├── supervisor.py              # Supervisor status update commands
 │   │   ├── reports.py                 # Daily reports + scheduler status
 │   │   └── policy.py                  # Policy inspection + simulate
 │   └── services/
 │       ├── ai_classifier.py           # GROQ AI + keyword fallback classifier
-│       ├── openclaw_client.py         # HTTP client for OpenClaw send API
+│       ├── evolution_client.py        # HTTP client for Evolution API send
+│       ├── openclaw_client.py         # HTTP client for OpenClaw send (legacy)
 │       ├── policy_engine.py           # Central policy/safety engine
 │       ├── response_generator.py      # WhatsApp reply text builder
 │       ├── supervisor_parser.py       # Parses "42 resolved" style commands
@@ -79,7 +115,7 @@ complaint-service/
 │       ├── scheduler.py               # APScheduler daily report job
 │       └── group_filter.py            # Group allow-list helper
 ├── Dockerfile                         # Multi-stage production image
-├── docker-compose.yml                 # Full stack with named volume
+├── docker-compose.yml                 # Evolution API + FastAPI + volumes + network
 ├── requirements.txt                   # Pinned Python dependencies
 └── .env.example                       # All environment variables documented
 ```
@@ -92,20 +128,29 @@ complaint-service/
 |---|---|---|
 | `GET` | `/health` | Health check |
 | `GET` | `/docs` | Interactive Swagger UI |
-| `POST` | `/openclaw/events` | Main OpenClaw webhook receiver |
-| `GET` | `/openclaw/config` | Show OpenClaw + policy config |
-| `POST` | `/webhook/message` | Direct webhook (for testing) |
-| `POST` | `/webhook/classify` | Classify a message without creating a ticket |
+| **Evolution API (primary)** | | |
+| `POST` | `/evolution/events` | Main Evolution API webhook receiver |
+| `GET` | `/evolution/status` | WhatsApp connection state of the instance |
+| `GET` | `/evolution/qr` | Fetch QR code for WhatsApp linking |
+| `GET` | `/evolution/config` | Show Evolution API + policy config |
+| **Tickets** | | |
 | `GET` | `/tickets` | List all tickets (filterable by status, category) |
 | `GET` | `/tickets/{id}` | Get a single ticket |
 | `PATCH` | `/tickets/{id}/status` | Update ticket status |
+| **Supervisor** | | |
 | `POST` | `/supervisor/command` | Process a supervisor command |
+| **Reports** | | |
 | `GET` | `/reports/daily` | Daily report as JSON |
-| `GET` | `/reports/daily/text` | Daily report as formatted text |
+| `GET` | `/reports/daily/text` | Daily report as formatted WhatsApp text |
 | `POST` | `/reports/daily/send` | Manually send report to WhatsApp group now |
 | `GET` | `/reports/scheduler/status` | Check scheduler next run time |
+| **Policy** | | |
 | `GET` | `/policy/` | Inspect all active policy rules |
 | `POST` | `/policy/simulate` | Dry-run policy against a test message |
+| **Testing / Legacy** | | |
+| `POST` | `/webhook/message` | Direct webhook without Evolution API |
+| `POST` | `/webhook/classify` | Classify a message — no DB writes |
+| `POST` | `/openclaw/events` | OpenClaw webhook (alternative gateway) |
 
 ---
 
@@ -126,6 +171,17 @@ cp .env.example .env
 | `SQL_ECHO` | `false` | Set to `true` to log every SQL query |
 | `CORS_ORIGINS` | `*` | Comma-separated allowed CORS origins |
 
+### Evolution API
+
+| Variable | Default | Description |
+|---|---|---|
+| `EVOLUTION_SERVER_URL` | `http://localhost:8080` | Public URL of Evolution API (used by Evolution itself) |
+| `EVOLUTION_API_KEY` | `change-me-strong-key-123` | API key — must match the value in docker-compose.yml |
+| `EVOLUTION_INSTANCE` | `complaint-bot` | Instance name (auto-created on first run) |
+| `EVOLUTION_TIMEOUT` | `10` | HTTP timeout in seconds for Evolution API calls |
+
+> **Important:** Change `EVOLUTION_API_KEY` to a strong random string before deploying. The same value must be set in both the `evolution` service and the `api` service in docker-compose.yml.
+
 ### GROQ AI Classifier
 
 | Variable | Default | Description |
@@ -135,14 +191,6 @@ cp .env.example .env
 
 > **Note:** If `GROQ_API_KEY` is left blank the service falls back to a built-in keyword classifier automatically. No crash, no error.
 
-### OpenClaw Integration
-
-| Variable | Default | Description |
-|---|---|---|
-| `OPENCLAW_API_URL` | `https://api.openclaw.io` | Base URL of your OpenClaw instance |
-| `OPENCLAW_API_KEY` | _(empty)_ | API key for sending WhatsApp replies |
-| `OPENCLAW_TIMEOUT` | `10` | HTTP timeout in seconds |
-
 ### Policy Engine
 
 | Variable | Default | Description |
@@ -151,22 +199,124 @@ cp .env.example .env
 | `MIN_CONFIDENCE` | `0.7` | Minimum AI confidence (0–1) to create a ticket |
 | `ALLOW_CASUAL_REPLIES` | `false` | Send a polite reply to non-complaints too |
 | `MAX_MESSAGE_LENGTH` | `2000` | Hard-reject messages longer than this (characters) |
-| `ALLOWED_GROUPS` | `*` | Comma-separated group IDs or names, `*` for all |
-| `ALLOWED_SENDERS` | `*` | Comma-separated sender IDs/phones, `*` for all |
+| `ALLOWED_GROUPS` | `*` | Comma-separated group JIDs or names, `*` for all |
+| `ALLOWED_SENDERS` | `*` | Comma-separated sender JIDs/phones, `*` for all |
 | `BLOCK_KEYWORDS` | _(empty)_ | Comma-separated keywords — messages with any of these are rejected |
 
 ### Daily Report Scheduler
 
 | Variable | Default | Description |
 |---|---|---|
-| `REPORT_GROUP_ID` | _(empty)_ | WhatsApp group ID to send the daily report to |
+| `REPORT_GROUP_ID` | _(empty)_ | WhatsApp group JID to send the daily report to |
 | `REPORT_CRON_HOUR` | `20` | Hour to send the report (24h format) |
 | `REPORT_CRON_MINUTE` | `0` | Minute to send the report |
 | `REPORT_TIMEZONE` | `Asia/Karachi` | Timezone for the cron schedule (any tz database name) |
 
 ---
 
+## Running with Docker (Recommended)
+
+This is the standard way to run the full stack. Both Evolution API and the complaint backend start together.
+
+### Prerequisites
+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running
+- A WhatsApp number to use as the bot (a spare SIM or second number works fine)
+
+### Step 1 — Configure environment
+
+```bash
+cd complaint-service
+cp .env.example .env
+```
+
+Open `.env` and set at minimum:
+```env
+EVOLUTION_API_KEY=your-strong-random-key-here
+GROQ_API_KEY=your-groq-api-key-here
+```
+
+Also update `docker-compose.yml` — find the two lines with `change-me-strong-key-123` and replace with the same key you put in `.env`:
+```yaml
+AUTHENTICATION_API_KEY: your-strong-random-key-here   # in evolution service
+EVOLUTION_API_KEY: your-strong-random-key-here         # in api service
+```
+
+### Step 2 — Start the stack
+
+```bash
+docker compose up --build
+```
+
+Wait until you see both services healthy:
+```
+complaint_evolution  | Server is running on port 8080
+complaint_api        | Application startup complete.
+```
+
+### Step 3 — Link your WhatsApp number (QR code scan)
+
+This only needs to be done once. Evolution API stores the session in a Docker volume and reconnects automatically on future restarts.
+
+**Option A — via the complaint API (easiest):**
+
+Open this URL in your browser:
+```
+http://localhost:8000/evolution/qr
+```
+You will get a JSON response with a `qr_code_base64` string. Paste it into any [base64 image decoder](https://base64.guru/converter/decode/image) to see the QR code, then scan it with WhatsApp.
+
+**Option B — via Evolution API Swagger UI:**
+
+1. Open **http://localhost:8080/docs** in your browser
+2. Click **Authorize** (top right) and enter your `EVOLUTION_API_KEY`
+3. Find `GET /instance/connect/{instanceName}` → click **Try it out**
+4. Enter instance name: `complaint-bot` → click **Execute**
+5. The response includes a `base64` QR code image — copy and decode it
+
+**Scanning the QR code in WhatsApp:**
+
+1. Open WhatsApp on your phone
+2. Tap **Settings** → **Linked Devices** → **Link a Device**
+3. Scan the QR code
+4. Done — the bot is now connected
+
+### Step 4 — Verify the connection
+
+```bash
+curl http://localhost:8000/evolution/status
+```
+
+Expected response when connected:
+```json
+{
+  "instance": "complaint-bot",
+  "connection_state": {
+    "instance": "complaint-bot",
+    "state": "open"
+  }
+}
+```
+
+`"state": "open"` means the bot is live and ready to receive messages.
+
+### Step 5 — Test it
+
+Send a message to any WhatsApp group the bot number is a member of:
+```
+The lift on 3rd floor is broken and stuck
+```
+
+Within seconds you should see:
+- A ticket created in the database
+- A WhatsApp reply in the group confirming the ticket number
+- A log line in `docker compose logs -f api`
+
+---
+
 ## Running Locally (without Docker)
+
+Use this if you want to run just the FastAPI backend during development (without Evolution API).
 
 ### Prerequisites
 
@@ -176,105 +326,96 @@ cp .env.example .env
 ### Steps
 
 ```bash
-# 1. Go into the project directory
 cd complaint-service
 
-# 2. Create and activate a virtual environment
+# Create and activate a virtual environment
 python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 
-# 3. Install dependencies
+# Install dependencies
 pip install -r requirements.txt
 
-# 4. Set up environment variables
+# Set up environment variables
 cp .env.example .env
-# Edit .env and fill in GROQ_API_KEY, OPENCLAW_API_KEY, etc.
+# Edit .env — GROQ_API_KEY is optional, everything else has safe defaults
 
-# 5. Run the server
+# Run the server
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-The API is now live at **http://localhost:8000**
-Interactive docs at **http://localhost:8000/docs**
+API live at **http://localhost:8000** — Swagger UI at **http://localhost:8000/docs**
+
+> Note: Without Evolution API running, the bot cannot receive or send WhatsApp messages. Use `/webhook/classify` and `/webhook/message` to test the pipeline manually.
 
 ---
 
-## Running with Docker
-
-### Prerequisites
-
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running
-
-### First run
+## Docker Commands Reference
 
 ```bash
-cd complaint-service
-
-# Copy and edit the env file
-cp .env.example .env
-# Open .env and add your GROQ_API_KEY and OPENCLAW_API_KEY
-
-# Build the image and start the container
+# Start everything (first time — builds image)
 docker compose up --build
-```
 
-### Subsequent runs
+# Start in background
+docker compose up -d
 
-```bash
-docker compose up           # foreground
-docker compose up -d        # detached (background)
-```
+# Follow logs for both services
+docker compose logs -f
 
-### Useful commands
-
-```bash
-# Follow API logs
+# Follow only the API logs
 docker compose logs -f api
 
-# Stop everything
+# Follow only the Evolution API logs
+docker compose logs -f evolution
+
+# Stop everything (keeps all data)
 docker compose down
 
-# Stop and delete the database volume (fresh start)
+# Stop and wipe all data (SQLite DB + WhatsApp session)
 docker compose down -v
 
 # Rebuild after code changes
-docker compose up --build
+docker compose up --build api
+
+# Restart just the API (after config changes)
+docker compose restart api
 ```
-
-The API is available at **http://localhost:8000**
-
-> The SQLite database is stored in a named Docker volume (`sqlite_data`) so it persists across container restarts. Only `docker compose down -v` will delete it.
 
 ---
 
-## Verifying the Setup
-
-After starting (locally or Docker), run these checks:
+## Verifying the Full Setup
 
 ```bash
-# 1. Health check
+# 1. Both containers healthy
+docker compose ps
+# Expected: STATUS = healthy for both
+
+# 2. API health check
 curl http://localhost:8000/health
 # Expected: {"status": "ok"}
 
-# 2. View active policy configuration
-curl http://localhost:8000/policy/
-# Expected: JSON with all policy rules
+# 3. WhatsApp connection state
+curl http://localhost:8000/evolution/status
+# Expected: {"connection_state": {"state": "open"}}
 
-# 3. Classify a test message (no DB writes)
+# 4. Classify a test message (no DB writes, no WhatsApp)
 curl -X POST http://localhost:8000/webhook/classify \
   -H "Content-Type: application/json" \
-  -d '{"message_text": "The elevator on floor 3 is broken"}'
-# Expected: {"is_complaint": true, "category": "Maintenance", ...}
+  -d '{"message_text": "The elevator on floor 3 is broken urgently"}'
+# Expected: {"is_complaint": true, "category": "Lift", "priority": "High", ...}
 
-# 4. Simulate a policy decision
+# 5. View active policy rules
+curl http://localhost:8000/policy/
+# Expected: JSON with all policy rules and current values
+
+# 6. Simulate a policy decision
 curl -X POST http://localhost:8000/policy/simulate \
   -H "Content-Type: application/json" \
   -d '{"message_text": "hello how are you", "is_complaint": false, "confidence": 0.2}'
-# Expected: {"final_outcome": {"will_create_ticket": false, ...}}
+# Expected: {"final_outcome": {"will_create_ticket": false, "will_send_reply": false}}
 
-# 5. Check the daily report scheduler
+# 7. Check the daily report scheduler
 curl http://localhost:8000/reports/scheduler/status
-# Expected: {"running": true, "next_run": "...", ...}
+# Expected: {"running": true, "next_run": "..."}
 ```
 
 ---
@@ -330,33 +471,41 @@ curl -X POST http://localhost:8000/policy/simulate \
 
 ## Manually Triggering the Daily Report
 
-To send the daily report immediately (without waiting for the scheduled time):
-
 ```bash
-curl -X POST http://localhost:8000/reports/daily/send
-```
-
-To preview the report without sending:
-
-```bash
+# Preview the report text (no sending)
 curl http://localhost:8000/reports/daily/text
+
+# Send it immediately to the configured WhatsApp group
+curl -X POST http://localhost:8000/reports/daily/send
 ```
 
 ---
 
 ## Common Issues
 
-**GROQ API key not working**
-The service automatically falls back to a keyword-based classifier. You will see `"source": "keyword_fallback"` in the classification response. Add a valid key to `.env` and restart.
+**QR code not appearing / instance already exists**
+Run `docker compose down -v` to wipe the Evolution volume, then `docker compose up --build` and scan again.
+
+**`"state": "close"` after scanning**
+The QR code expired before you scanned it. Fetch a fresh one from `http://localhost:8000/evolution/qr` and scan within 60 seconds.
+
+**WhatsApp session lost after restart**
+This should not happen — Evolution stores the session in the `evolution_data` Docker volume. If it does, the volume may have been deleted. Avoid `docker compose down -v` unless you want a full reset.
 
 **No WhatsApp replies being sent**
-Check that `OPENCLAW_API_KEY` is set and `READ_ONLY_MODE` is not `true`. Visit `/openclaw/config` to verify.
+Check that `EVOLUTION_API_KEY` matches in both `.env` and `docker-compose.yml`, and that `READ_ONLY_MODE` is not `true`. Visit `/evolution/config` to verify.
+
+**GROQ API key not working**
+The service falls back to the keyword classifier automatically. You will see a lower confidence score in responses. Get a free key at [console.groq.com](https://console.groq.com).
+
+**Port 8080 already in use (Evolution API)**
+Change the host port in `docker-compose.yml` from `"8080:8080"` to e.g. `"8081:8080"`, then access Evolution at `http://localhost:8081`.
+
+**Port 8000 already in use (FastAPI)**
+Change `"8000:8000"` to e.g. `"8001:8000"` in `docker-compose.yml`.
 
 **Database is reset after restart**
-This happens if you run `docker compose down -v`. Omit the `-v` flag to keep the volume.
+This happens only if you run `docker compose down -v`. Omit the `-v` flag to keep all data.
 
 **Wrong timezone on scheduled reports**
 Set `REPORT_TIMEZONE` to a valid [tz database name](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) such as `Asia/Karachi`, `UTC`, or `Asia/Dubai`.
-
-**Port 8000 is already in use**
-Change the host port mapping in `docker-compose.yml` from `"8000:8000"` to e.g. `"8080:8000"`, then access the API at `http://localhost:8080`.

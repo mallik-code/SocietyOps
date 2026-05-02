@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import init_db
-from app.routers import webhooks, tickets, supervisor, reports, openclaw, policy
+from app.routers import webhooks, tickets, supervisor, reports, openclaw, policy, evolution
 from app.services.scheduler import create_scheduler
 
 logging.basicConfig(
@@ -37,7 +37,7 @@ app = FastAPI(
     title="WhatsApp Complaint Management API",
     description=(
         "AI-powered backend for receiving, classifying, and tracking "
-        "citizen complaints forwarded via WhatsApp through OpenClaw."
+        "citizen complaints forwarded via WhatsApp (Evolution API or OpenClaw)."
     ),
     version="1.0.0",
     lifespan=lifespan,
@@ -58,6 +58,7 @@ app.include_router(tickets.router)
 app.include_router(supervisor.router)
 app.include_router(reports.router)
 app.include_router(openclaw.router)
+app.include_router(evolution.router)
 app.include_router(policy.router)
 
 
