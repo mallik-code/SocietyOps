@@ -64,13 +64,10 @@ function AddGroupForm({ onClose }: { onClose: () => void }) {
   const [groupId, setGroupId] = useState("");
   const [description, setDescription] = useState("");
   const [error, setError] = useState("");
-  const [showPicker, setShowPicker] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [showOnlyGroups, setShowOnlyGroups] = useState(true);
 
-  const { data: waStatus } = useListWhatsappChats({
-    query: { enabled: showPicker },
-  });
+  const { data: waStatus, isLoading: isLoadingGroups } = useListWhatsappChats();
 
   const { mutate, isPending } = useAddTrackedGroup({
     mutation: {
@@ -84,6 +81,20 @@ function AddGroupForm({ onClose }: { onClose: () => void }) {
     },
   });
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    setError("");
+    try {
+      const response = await fetch("/api/connect/whatsapp/refresh-groups", { method: "POST" });
+      if (!response.ok) throw new Error("Failed to refresh groups");
+      await queryClient.invalidateQueries({ queryKey: ["/api/connect/whatsapp/chats"] });
+    } catch (err) {
+      setError("Failed to refresh groups from WhatsApp");
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !groupId.trim()) {
@@ -95,9 +106,8 @@ function AddGroupForm({ onClose }: { onClose: () => void }) {
   };
 
   const selectGroup = (group: any) => {
-    setName(group.name || group.pushname || "Unnamed Group");
+    setName(group.name || "Unnamed Group");
     setGroupId(group.id);
-    setShowPicker(false);
   };
 
   return (
@@ -106,77 +116,65 @@ function AddGroupForm({ onClose }: { onClose: () => void }) {
         <p className="text-sm font-semibold text-foreground">Add WhatsApp Group</p>
         <button
           type="button"
-          onClick={() => setShowPicker(!showPicker)}
-          className="flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded border border-primary/20 bg-primary/5 text-primary hover:bg-primary/10 transition-colors"
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          className="flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded border border-primary/20 bg-primary/5 text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
         >
-          <RefreshCw className={`w-3 h-3 ${showPicker && !waStatus ? "animate-spin" : ""}`} />
-          {showPicker ? "Hide List" : "Fetch from WhatsApp"}
+          <RefreshCw className={`w-3 h-3 ${isRefreshing ? "animate-spin" : ""}`} />
+          {isRefreshing ? "Refreshing..." : "Refresh Groups"}
         </button>
       </div>
 
-      {showPicker && (
-        <div className="border border-border rounded-md bg-background overflow-hidden mb-3">
-          <div className="p-2 border-b border-border bg-muted/20 flex gap-2">
-            <div className="relative flex-1">
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search groups..."
-                className="w-full text-xs bg-background border border-border rounded px-2 py-1 outline-none focus:ring-1 focus:ring-primary"
-              />
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowOnlyGroups(!showOnlyGroups)}
-              className={`px-2 py-1 text-[10px] rounded border transition-colors ${
-                showOnlyGroups 
-                  ? "bg-primary/10 border-primary/30 text-primary" 
-                  : "bg-muted border-border text-muted-foreground"
-              }`}
-            >
-              {showOnlyGroups ? "Groups Only" : "All Chats"}
-            </button>
-          </div>
-          <div className="max-h-[160px] overflow-y-auto">
-            {!waStatus ? (
-              <div className="p-3 text-center text-xs text-muted-foreground italic">
-                Loading chats from WhatsApp instance...
-              </div>
-            ) : (() => {
-              const filtered = waStatus.filter(c => {
-                const matchesSearch = (c.name || "").toLowerCase().includes(searchTerm.toLowerCase()) || 
-                                     (c.id || "").toLowerCase().includes(searchTerm.toLowerCase());
-                const isGroup = c.id.endsWith("@g.us");
-                return matchesSearch && (!showOnlyGroups || isGroup);
-              });
-              
-              if (filtered.length === 0) {
-                return (
-                  <div className="p-3 text-center text-xs text-muted-foreground italic">
-                    {searchTerm ? "No matches found." : "No groups found."}
-                  </div>
-                );
-              }
-
-              return filtered.map((chat) => (
-                <button
-                  key={chat.id}
-                  type="button"
-                  onClick={() => selectGroup(chat)}
-                  className="w-full text-left px-3 py-2 text-xs hover:bg-muted border-b border-border/50 last:border-0 flex items-center justify-between group"
-                >
-                  <div className="truncate pr-2">
-                    <span className="font-medium text-foreground">{chat.name || "Unknown"}</span>
-                    <span className="ml-2 text-muted-foreground font-mono opacity-60 text-[10px]">{chat.id}</span>
-                  </div>
-                  <Plus className="w-3 h-3 text-primary opacity-0 group-hover:opacity-100" />
-                </button>
-              ));
-            })()}
-          </div>
+      <div className="border border-border rounded-md bg-background overflow-hidden mb-3">
+        <div className="p-2 border-b border-border bg-muted/20">
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search available groups in database..."
+            className="w-full text-xs bg-background border border-border rounded px-2 py-1 outline-none focus:ring-1 focus:ring-primary"
+          />
         </div>
-      )}
+        <div className="max-h-[160px] overflow-y-auto">
+          {isLoadingGroups ? (
+            <div className="p-3 text-center text-xs text-muted-foreground italic">
+              Loading groups from database...
+            </div>
+          ) : (() => {
+            const filtered = (waStatus || []).filter(c => 
+              (c.name || "").toLowerCase().includes(searchTerm.toLowerCase()) || 
+              (c.id || "").toLowerCase().includes(searchTerm.toLowerCase())
+            );
+            
+            if (filtered.length === 0) {
+              return (
+                <div className="p-3 text-center text-xs text-muted-foreground italic">
+                  {searchTerm ? "No matches found." : "No groups in database. Click Refresh to fetch from WhatsApp."}
+                </div>
+              );
+            }
+
+            return filtered.map((chat) => (
+              <button
+                key={chat.id}
+                type="button"
+                onClick={() => selectGroup(chat)}
+                className={`w-full text-left px-3 py-2 text-xs hover:bg-muted border-b border-border/50 last:border-0 flex items-center justify-between group ${groupId === chat.id ? "bg-primary/5" : ""}`}
+              >
+                <div className="truncate pr-2">
+                  <span className={`font-medium ${groupId === chat.id ? "text-primary" : "text-foreground"}`}>{chat.name || "Unknown"}</span>
+                  <span className="ml-2 text-muted-foreground font-mono opacity-60 text-[10px]">{chat.id}</span>
+                </div>
+                {groupId === chat.id ? (
+                  <Badge variant="outline" className="text-[9px] h-4 px-1 bg-primary/10 text-primary border-primary/20">Selected</Badge>
+                ) : (
+                  <Plus className="w-3 h-3 text-primary opacity-0 group-hover:opacity-100" />
+                )}
+              </button>
+            ));
+          })()}
+        </div>
+      </div>
 
       {error && (
         <div className="flex items-center gap-2 text-xs text-destructive bg-destructive/10 rounded-md px-3 py-2">

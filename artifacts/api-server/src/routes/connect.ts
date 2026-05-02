@@ -120,54 +120,87 @@ router.get("/connect/whatsapp/qr", async (_req, res) => {
   }
 });
 
-router.get("/connect/whatsapp/chats", async (_req, res) => {
+router.post("/connect/whatsapp/refresh-groups", async (_req, res) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 45000); // 45s timeout for Evolution calls
+
   try {
-    // Fetch both recent chats and all groups to ensure no groups are missing
-    const [chatsRes, groupsRes] = await Promise.all([
-      fetch(`${EVOLUTION_URL}/chat/findChats/${EVOLUTION_INSTANCE}`, {
+    const { whatsappGroupRepository } = await import("../repositories/whatsapp-group.repository");
+    const chatMap = new Map<string, { id: string; name: string }>();
+
+    // 1. Try fetchAllGroups (more thorough but can be slow)
+    try {
+      const groupsRes = await fetch(`${EVOLUTION_URL}/group/fetchAllGroups/${EVOLUTION_INSTANCE}?getParticipants=false`, {
+        headers: evolutionHeaders(),
+        signal: controller.signal
+      });
+      if (groupsRes.ok) {
+        const groups = (await groupsRes.json()) as any[];
+        groups.forEach((group: any) => {
+          const jid = group.id || group.remoteJid;
+          if (jid && jid.endsWith("@g.us")) {
+            chatMap.set(jid, { id: jid, name: group.subject || group.name || "Unknown Group" });
+          }
+        });
+      }
+    } catch (e) {
+      console.warn("fetchAllGroups timed out or failed, falling back to findChats", e);
+    }
+
+    // 2. Try findChats (usually faster, gets recent activity)
+    try {
+      const chatsRes = await fetch(`${EVOLUTION_URL}/chat/findChats/${EVOLUTION_INSTANCE}`, {
         method: "POST",
         headers: evolutionHeaders(),
         body: JSON.stringify({}),
-      }),
-      fetch(`${EVOLUTION_URL}/group/fetchAllGroups/${EVOLUTION_INSTANCE}?getParticipants=false`, {
-        headers: evolutionHeaders(),
-      }),
-    ]);
-
-    const chats = chatsRes.ok ? (await chatsRes.json()) as any[] : [];
-    const groups = groupsRes.ok ? (await groupsRes.json()) as any[] : [];
-
-    // Map to keep track of unique chats by JID
-    const chatMap = new Map<string, any>();
-
-    // Add recent chats first
-    chats.forEach((chat: any) => {
-      const jid = chat.remoteJid || chat.id;
-      if (!jid) return;
-      chatMap.set(jid, {
-        ...chat,
-        id: jid,
-        name: chat.pushName || chat.name || chat.pushname || "Unknown",
+        signal: controller.signal
       });
-    });
+      if (chatsRes.ok) {
+        const chats = (await chatsRes.json()) as any[];
+        chats.forEach((chat: any) => {
+          const jid = chat.remoteJid || chat.id;
+          if (jid && jid.endsWith("@g.us")) {
+            // Only add if not already present or if we have a better name
+            if (!chatMap.has(jid) || chat.pushName || chat.name) {
+              chatMap.set(jid, {
+                id: jid,
+                name: chat.pushName || chat.name || chat.pushname || chatMap.get(jid)?.name || "Unknown",
+              });
+            }
+          }
+        });
+      }
+    } catch (e) {
+      console.warn("findChats timed out or failed", e);
+    }
 
-    // Add/Update with data from fetchAllGroups (more accurate group names)
-    groups.forEach((group: any) => {
-      const jid = group.id || group.remoteJid;
-      if (!jid) return;
-      
-      const existing = chatMap.get(jid);
-      chatMap.set(jid, {
-        ...(existing || {}),
-        ...group,
-        id: jid,
-        name: group.subject || group.name || (existing ? existing.name : "Unknown Group"),
-      });
-    });
+    clearTimeout(timeoutId);
 
-    res.json(Array.from(chatMap.values()));
+    const groupList = Array.from(chatMap.values());
+    if (groupList.length > 0) {
+      await whatsappGroupRepository.syncGroups(groupList);
+    }
+
+    res.json({ success: true, count: groupList.length, totalFetched: groupList.length });
   } catch (err) {
-    res.status(502).json({ error: `Could not reach Evolution API at ${EVOLUTION_URL}: ${String(err)}` });
+    clearTimeout(timeoutId);
+    res.status(502).json({ error: `Refresh failed: ${String(err)}` });
+  }
+});
+
+router.get("/connect/whatsapp/chats", async (_req, res) => {
+  try {
+    const { whatsappGroupRepository } = await import("../repositories/whatsapp-group.repository");
+    const groups = await whatsappGroupRepository.getAllGroups();
+    
+    // Format to match expected frontend structure
+    res.json(groups.map(g => ({
+      id: g.groupId,
+      name: g.name,
+      updatedAt: g.updatedAt
+    })));
+  } catch (err) {
+    res.status(500).json({ error: `Database error: ${String(err)}` });
   }
 });
 

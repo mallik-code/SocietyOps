@@ -57,6 +57,13 @@ export async function runMigrations(): Promise<void> {
       category    TEXT,
       timestamp   TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+
+    CREATE TABLE IF NOT EXISTS whatsapp_groups (
+      id            SERIAL PRIMARY KEY,
+      group_id      TEXT NOT NULL UNIQUE,
+      name          TEXT NOT NULL,
+      updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
   `);
 }
 
