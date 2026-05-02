@@ -27,6 +27,10 @@ import type {
   ListTicketsParams,
   PriorityCount,
   StatusCount,
+  SuccessResponse,
+  TelegramQrResponse,
+  TelegramSetupInput,
+  TelegramStatus,
   Ticket,
   TicketStatusUpdate,
   TrackedContact,
@@ -34,6 +38,8 @@ import type {
   TrackedGroup,
   TrackedGroupInput,
   TrackedItemPatch,
+  WhatsappConnectStatus,
+  WhatsappQrResponse,
   WhatsappStatus,
 } from "./api.schemas";
 
@@ -911,6 +917,474 @@ export const useUpdateTicketStatus = <
 > => {
   return useMutation(getUpdateTicketStatusMutationOptions(options));
 };
+
+/**
+ * @summary Get WhatsApp QR code for pairing
+ */
+export const getGetWhatsappQrUrl = () => {
+  return `/api/connect/whatsapp/qr`;
+};
+
+export const getWhatsappQr = async (
+  options?: RequestInit,
+): Promise<WhatsappQrResponse> => {
+  return customFetch<WhatsappQrResponse>(getGetWhatsappQrUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetWhatsappQrQueryKey = () => {
+  return [`/api/connect/whatsapp/qr`] as const;
+};
+
+export const getGetWhatsappQrQueryOptions = <
+  TData = Awaited<ReturnType<typeof getWhatsappQr>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getWhatsappQr>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetWhatsappQrQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getWhatsappQr>>> = ({
+    signal,
+  }) => getWhatsappQr({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getWhatsappQr>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetWhatsappQrQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getWhatsappQr>>
+>;
+export type GetWhatsappQrQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get WhatsApp QR code for pairing
+ */
+
+export function useGetWhatsappQr<
+  TData = Awaited<ReturnType<typeof getWhatsappQr>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getWhatsappQr>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetWhatsappQrQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get detailed WhatsApp connection status
+ */
+export const getGetWhatsappConnectStatusUrl = () => {
+  return `/api/connect/whatsapp/status`;
+};
+
+export const getWhatsappConnectStatus = async (
+  options?: RequestInit,
+): Promise<WhatsappConnectStatus> => {
+  return customFetch<WhatsappConnectStatus>(getGetWhatsappConnectStatusUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetWhatsappConnectStatusQueryKey = () => {
+  return [`/api/connect/whatsapp/status`] as const;
+};
+
+export const getGetWhatsappConnectStatusQueryOptions = <
+  TData = Awaited<ReturnType<typeof getWhatsappConnectStatus>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getWhatsappConnectStatus>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetWhatsappConnectStatusQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getWhatsappConnectStatus>>
+  > = ({ signal }) => getWhatsappConnectStatus({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getWhatsappConnectStatus>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetWhatsappConnectStatusQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getWhatsappConnectStatus>>
+>;
+export type GetWhatsappConnectStatusQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get detailed WhatsApp connection status
+ */
+
+export function useGetWhatsappConnectStatus<
+  TData = Awaited<ReturnType<typeof getWhatsappConnectStatus>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getWhatsappConnectStatus>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetWhatsappConnectStatusQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Disconnect and logout WhatsApp instance
+ */
+export const getLogoutWhatsappUrl = () => {
+  return `/api/connect/whatsapp/logout`;
+};
+
+export const logoutWhatsapp = async (
+  options?: RequestInit,
+): Promise<SuccessResponse> => {
+  return customFetch<SuccessResponse>(getLogoutWhatsappUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getLogoutWhatsappMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof logoutWhatsapp>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof logoutWhatsapp>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["logoutWhatsapp"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof logoutWhatsapp>>,
+    void
+  > = () => {
+    return logoutWhatsapp(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type LogoutWhatsappMutationResult = NonNullable<
+  Awaited<ReturnType<typeof logoutWhatsapp>>
+>;
+
+export type LogoutWhatsappMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Disconnect and logout WhatsApp instance
+ */
+export const useLogoutWhatsapp = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof logoutWhatsapp>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof logoutWhatsapp>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getLogoutWhatsappMutationOptions(options));
+};
+
+/**
+ * @summary Get Telegram bot connection status
+ */
+export const getGetTelegramStatusUrl = () => {
+  return `/api/connect/telegram/status`;
+};
+
+export const getTelegramStatus = async (
+  options?: RequestInit,
+): Promise<TelegramStatus> => {
+  return customFetch<TelegramStatus>(getGetTelegramStatusUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetTelegramStatusQueryKey = () => {
+  return [`/api/connect/telegram/status`] as const;
+};
+
+export const getGetTelegramStatusQueryOptions = <
+  TData = Awaited<ReturnType<typeof getTelegramStatus>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getTelegramStatus>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetTelegramStatusQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getTelegramStatus>>
+  > = ({ signal }) => getTelegramStatus({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getTelegramStatus>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetTelegramStatusQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getTelegramStatus>>
+>;
+export type GetTelegramStatusQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get Telegram bot connection status
+ */
+
+export function useGetTelegramStatus<
+  TData = Awaited<ReturnType<typeof getTelegramStatus>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getTelegramStatus>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetTelegramStatusQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Configure Telegram bot token
+ */
+export const getSetupTelegramUrl = () => {
+  return `/api/connect/telegram`;
+};
+
+export const setupTelegram = async (
+  telegramSetupInput: TelegramSetupInput,
+  options?: RequestInit,
+): Promise<TelegramStatus> => {
+  return customFetch<TelegramStatus>(getSetupTelegramUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(telegramSetupInput),
+  });
+};
+
+export const getSetupTelegramMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setupTelegram>>,
+    TError,
+    { data: BodyType<TelegramSetupInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setupTelegram>>,
+  TError,
+  { data: BodyType<TelegramSetupInput> },
+  TContext
+> => {
+  const mutationKey = ["setupTelegram"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setupTelegram>>,
+    { data: BodyType<TelegramSetupInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return setupTelegram(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetupTelegramMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setupTelegram>>
+>;
+export type SetupTelegramMutationBody = BodyType<TelegramSetupInput>;
+export type SetupTelegramMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Configure Telegram bot token
+ */
+export const useSetupTelegram = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setupTelegram>>,
+    TError,
+    { data: BodyType<TelegramSetupInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof setupTelegram>>,
+  TError,
+  { data: BodyType<TelegramSetupInput> },
+  TContext
+> => {
+  return useMutation(getSetupTelegramMutationOptions(options));
+};
+
+/**
+ * @summary Get Telegram bot deep-link QR code
+ */
+export const getGetTelegramQrUrl = () => {
+  return `/api/connect/telegram/qr`;
+};
+
+export const getTelegramQr = async (
+  options?: RequestInit,
+): Promise<TelegramQrResponse> => {
+  return customFetch<TelegramQrResponse>(getGetTelegramQrUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetTelegramQrQueryKey = () => {
+  return [`/api/connect/telegram/qr`] as const;
+};
+
+export const getGetTelegramQrQueryOptions = <
+  TData = Awaited<ReturnType<typeof getTelegramQr>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getTelegramQr>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetTelegramQrQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getTelegramQr>>> = ({
+    signal,
+  }) => getTelegramQr({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getTelegramQr>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetTelegramQrQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getTelegramQr>>
+>;
+export type GetTelegramQrQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get Telegram bot deep-link QR code
+ */
+
+export function useGetTelegramQr<
+  TData = Awaited<ReturnType<typeof getTelegramQr>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getTelegramQr>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetTelegramQrQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary List all tracked WhatsApp groups

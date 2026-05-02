@@ -168,6 +168,76 @@ export const UpdateTicketStatusResponse = zod.object({
 });
 
 /**
+ * @summary Get WhatsApp QR code for pairing
+ */
+export const GetWhatsappQrResponse = zod.object({
+  qr_data_url: zod.string().describe("Base64 PNG data URL of the QR code"),
+  expires_in: zod.number().describe("Seconds until the QR code expires"),
+  status: zod.enum(["disconnected", "waiting_scan", "connected"]),
+  pairing_token: zod.string(),
+});
+
+/**
+ * @summary Get detailed WhatsApp connection status
+ */
+export const GetWhatsappConnectStatusResponse = zod.object({
+  connected: zod.boolean(),
+  state: zod.enum(["disconnected", "waiting_scan", "connected"]),
+  instance: zod.string(),
+  phone: zod.string().nullish(),
+  connected_at: zod.string().nullish(),
+  api_url: zod.string(),
+});
+
+/**
+ * @summary Disconnect and logout WhatsApp instance
+ */
+export const LogoutWhatsappResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary Get Telegram bot connection status
+ */
+export const GetTelegramStatusResponse = zod.object({
+  connected: zod.boolean(),
+  bot_username: zod.string().nullish(),
+  bot_name: zod.string().nullish(),
+  webhook_url: zod.string().nullish(),
+  configured_at: zod.string().nullish(),
+});
+
+/**
+ * @summary Configure Telegram bot token
+ */
+export const SetupTelegramBody = zod.object({
+  bot_token: zod
+    .string()
+    .describe("Telegram bot token from @BotFather (format: 123456:ABC-DEF...)"),
+  webhook_url: zod
+    .string()
+    .nullish()
+    .describe("Optional HTTPS webhook URL for receiving updates"),
+});
+
+export const SetupTelegramResponse = zod.object({
+  connected: zod.boolean(),
+  bot_username: zod.string().nullish(),
+  bot_name: zod.string().nullish(),
+  webhook_url: zod.string().nullish(),
+  configured_at: zod.string().nullish(),
+});
+
+/**
+ * @summary Get Telegram bot deep-link QR code
+ */
+export const GetTelegramQrResponse = zod.object({
+  qr_data_url: zod.string(),
+  bot_link: zod.string(),
+  bot_username: zod.string(),
+});
+
+/**
  * @summary List all tracked WhatsApp groups
  */
 export const ListTrackedGroupsResponseItem = zod.object({

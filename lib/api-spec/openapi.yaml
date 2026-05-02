@@ -14,6 +14,8 @@ tags:
     description: Dashboard summary and analytics
   - name: tickets
     description: Complaint tickets management
+  - name: connect
+    description: WhatsApp and Telegram channel connection
 
 paths:
   /healthz:
@@ -222,6 +224,96 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+
+  /connect/whatsapp/qr:
+    get:
+      operationId: getWhatsappQr
+      tags: [connect]
+      summary: Get WhatsApp QR code for pairing
+      responses:
+        "200":
+          description: QR code data URL and pairing status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WhatsappQrResponse"
+
+  /connect/whatsapp/status:
+    get:
+      operationId: getWhatsappConnectStatus
+      tags: [connect]
+      summary: Get detailed WhatsApp connection status
+      responses:
+        "200":
+          description: WhatsApp connection details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WhatsappConnectStatus"
+
+  /connect/whatsapp/logout:
+    post:
+      operationId: logoutWhatsapp
+      tags: [connect]
+      summary: Disconnect and logout WhatsApp instance
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /connect/telegram/status:
+    get:
+      operationId: getTelegramStatus
+      tags: [connect]
+      summary: Get Telegram bot connection status
+      responses:
+        "200":
+          description: Telegram bot status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TelegramStatus"
+
+  /connect/telegram:
+    post:
+      operationId: setupTelegram
+      tags: [connect]
+      summary: Configure Telegram bot token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TelegramSetupInput"
+      responses:
+        "200":
+          description: Telegram bot configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TelegramStatus"
+        "400":
+          description: Invalid bot token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /connect/telegram/qr:
+    get:
+      operationId: getTelegramQr
+      tags: [connect]
+      summary: Get Telegram bot deep-link QR code
+      responses:
+        "200":
+          description: Telegram QR code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TelegramQrResponse"
 
   /policies/groups:
     get:
@@ -645,6 +737,91 @@ components:
         id:
           type: integer
       required: [deleted, id]
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+      required: [success]
+
+    WhatsappQrResponse:
+      type: object
+      properties:
+        qr_data_url:
+          type: string
+          description: Base64 PNG data URL of the QR code
+        expires_in:
+          type: integer
+          description: Seconds until the QR code expires
+        status:
+          type: string
+          enum: [disconnected, waiting_scan, connected]
+        pairing_token:
+          type: string
+      required: [qr_data_url, expires_in, status, pairing_token]
+
+    WhatsappConnectStatus:
+      type: object
+      properties:
+        connected:
+          type: boolean
+        state:
+          type: string
+          enum: [disconnected, waiting_scan, connected]
+        instance:
+          type: string
+        phone:
+          type: string
+          nullable: true
+        connected_at:
+          type: string
+          nullable: true
+        api_url:
+          type: string
+      required: [connected, state, instance, api_url]
+
+    TelegramStatus:
+      type: object
+      properties:
+        connected:
+          type: boolean
+        bot_username:
+          type: string
+          nullable: true
+        bot_name:
+          type: string
+          nullable: true
+        webhook_url:
+          type: string
+          nullable: true
+        configured_at:
+          type: string
+          nullable: true
+      required: [connected]
+
+    TelegramSetupInput:
+      type: object
+      properties:
+        bot_token:
+          type: string
+          description: "Telegram bot token from @BotFather (format: 123456:ABC-DEF...)"
+        webhook_url:
+          type: string
+          nullable: true
+          description: Optional HTTPS webhook URL for receiving updates
+      required: [bot_token]
+
+    TelegramQrResponse:
+      type: object
+      properties:
+        qr_data_url:
+          type: string
+        bot_link:
+          type: string
+        bot_username:
+          type: string
+      required: [qr_data_url, bot_link, bot_username]
 
     ErrorResponse:
       type: object

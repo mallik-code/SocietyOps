@@ -133,6 +133,67 @@ export interface DeletedResponse {
   id: number;
 }
 
+export interface SuccessResponse {
+  success: boolean;
+}
+
+export type WhatsappQrResponseStatus =
+  (typeof WhatsappQrResponseStatus)[keyof typeof WhatsappQrResponseStatus];
+
+export const WhatsappQrResponseStatus = {
+  disconnected: "disconnected",
+  waiting_scan: "waiting_scan",
+  connected: "connected",
+} as const;
+
+export interface WhatsappQrResponse {
+  /** Base64 PNG data URL of the QR code */
+  qr_data_url: string;
+  /** Seconds until the QR code expires */
+  expires_in: number;
+  status: WhatsappQrResponseStatus;
+  pairing_token: string;
+}
+
+export type WhatsappConnectStatusState =
+  (typeof WhatsappConnectStatusState)[keyof typeof WhatsappConnectStatusState];
+
+export const WhatsappConnectStatusState = {
+  disconnected: "disconnected",
+  waiting_scan: "waiting_scan",
+  connected: "connected",
+} as const;
+
+export interface WhatsappConnectStatus {
+  connected: boolean;
+  state: WhatsappConnectStatusState;
+  instance: string;
+  phone?: string | null;
+  connected_at?: string | null;
+  api_url: string;
+}
+
+export interface TelegramStatus {
+  connected: boolean;
+  bot_username?: string | null;
+  bot_name?: string | null;
+  webhook_url?: string | null;
+  configured_at?: string | null;
+}
+
+export interface TelegramSetupInput {
+  /** Telegram bot token from @BotFather (format: 123456:ABC-DEF...) */
+  bot_token: string;
+  /** Optional HTTPS webhook URL for receiving updates */
+  webhook_url?: string | null;
+}
+
+export interface TelegramQrResponse {
+  qr_data_url: string;
+  bot_link: string;
+  bot_username: string;
+}
+
 export interface ErrorResponse {
   error: string;
 }
