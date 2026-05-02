@@ -65,6 +65,8 @@ function AddGroupForm({ onClose }: { onClose: () => void }) {
   const [description, setDescription] = useState("");
   const [error, setError] = useState("");
   const [showPicker, setShowPicker] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showOnlyGroups, setShowOnlyGroups] = useState(true);
 
   const { data: waStatus } = useListWhatsappChats({
     query: { enabled: showPicker },
@@ -114,17 +116,50 @@ function AddGroupForm({ onClose }: { onClose: () => void }) {
 
       {showPicker && (
         <div className="border border-border rounded-md bg-background overflow-hidden mb-3">
+          <div className="p-2 border-b border-border bg-muted/20 flex gap-2">
+            <div className="relative flex-1">
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search groups..."
+                className="w-full text-xs bg-background border border-border rounded px-2 py-1 outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowOnlyGroups(!showOnlyGroups)}
+              className={`px-2 py-1 text-[10px] rounded border transition-colors ${
+                showOnlyGroups 
+                  ? "bg-primary/10 border-primary/30 text-primary" 
+                  : "bg-muted border-border text-muted-foreground"
+              }`}
+            >
+              {showOnlyGroups ? "Groups Only" : "All Chats"}
+            </button>
+          </div>
           <div className="max-h-[160px] overflow-y-auto">
             {!waStatus ? (
               <div className="p-3 text-center text-xs text-muted-foreground italic">
                 Loading chats from WhatsApp instance...
               </div>
-            ) : waStatus.filter(c => c.id.includes("@g.us")).length === 0 ? (
-              <div className="p-3 text-center text-xs text-muted-foreground italic">
-                No groups found.
-              </div>
-            ) : (
-              waStatus.filter(c => c.id.includes("@g.us")).map((chat) => (
+            ) : (() => {
+              const filtered = waStatus.filter(c => {
+                const matchesSearch = (c.name || "").toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                     (c.id || "").toLowerCase().includes(searchTerm.toLowerCase());
+                const isGroup = c.id.endsWith("@g.us");
+                return matchesSearch && (!showOnlyGroups || isGroup);
+              });
+              
+              if (filtered.length === 0) {
+                return (
+                  <div className="p-3 text-center text-xs text-muted-foreground italic">
+                    {searchTerm ? "No matches found." : "No groups found."}
+                  </div>
+                );
+              }
+
+              return filtered.map((chat) => (
                 <button
                   key={chat.id}
                   type="button"
@@ -132,13 +167,13 @@ function AddGroupForm({ onClose }: { onClose: () => void }) {
                   className="w-full text-left px-3 py-2 text-xs hover:bg-muted border-b border-border/50 last:border-0 flex items-center justify-between group"
                 >
                   <div className="truncate pr-2">
-                    <span className="font-medium text-foreground">{chat.name || chat.pushname || "Unknown"}</span>
-                    <span className="ml-2 text-muted-foreground font-mono opacity-60">{chat.id}</span>
+                    <span className="font-medium text-foreground">{chat.name || "Unknown"}</span>
+                    <span className="ml-2 text-muted-foreground font-mono opacity-60 text-[10px]">{chat.id}</span>
                   </div>
                   <Plus className="w-3 h-3 text-primary opacity-0 group-hover:opacity-100" />
                 </button>
-              ))
-            )}
+              ));
+            })()}
           </div>
         </div>
       )}

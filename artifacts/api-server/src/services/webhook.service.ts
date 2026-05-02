@@ -1,5 +1,6 @@
 import { messageRepository } from "../repositories/message.repository";
 import { logger } from "../lib/logger";
+import { trackedGroups, trackedContacts } from "../routes/policies";
 
 const COMPLAINT_SERVICE_URL = process.env.COMPLAINT_SERVICE_URL || "http://api:8000";
 
@@ -61,6 +62,19 @@ export class WebhookService {
 
     // Save to repository (in-memory list)
     messageRepository.saveRawMessage(newMessage);
+
+    // Update message counts for policies
+    if (isGroup) {
+      const group = trackedGroups.find(g => g.group_id === data.key.remoteJid);
+      if (group) {
+        group.message_count++;
+      }
+    } else {
+      const contact = trackedContacts.find(c => c.phone === data.key.remoteJid?.split("@")[0]);
+      if (contact) {
+        contact.message_count++;
+      }
+    }
   }
 }
 

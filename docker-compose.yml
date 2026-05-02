@@ -91,7 +91,7 @@ services:
       # ── Global webhook → points to our FastAPI service ────────────────────
       # Inside the Docker network, the api service is reachable as http://api:8000
       WEBHOOK_GLOBAL_ENABLED: "true"
-      WEBHOOK_GLOBAL_URL: http://api:8000/evolution/events
+      WEBHOOK_GLOBAL_URL: ${WEBHOOK_URL:-http://api-server:3001/api/webhooks/evolution}
       WEBHOOK_GLOBAL_WEBHOOK_BY_EVENTS: "false"
 
       # Only forward the events we care about

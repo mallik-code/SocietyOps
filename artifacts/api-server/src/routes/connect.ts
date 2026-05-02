@@ -106,28 +106,50 @@ router.get("/connect/whatsapp/qr", async (_req, res) => {
 
 router.get("/connect/whatsapp/chats", async (_req, res) => {
   try {
-    const r = await fetch(
-      `${EVOLUTION_URL}/chat/findChats/${EVOLUTION_INSTANCE}`,
-      { 
+    // Fetch both recent chats and all groups to ensure no groups are missing
+    const [chatsRes, groupsRes] = await Promise.all([
+      fetch(`${EVOLUTION_URL}/chat/findChats/${EVOLUTION_INSTANCE}`, {
         method: "POST",
         headers: evolutionHeaders(),
-        body: JSON.stringify({})
-      }
-    );
-    if (!r.ok) {
-      res.status(502).json({ error: `Evolution API error: ${r.status}` });
-      return;
-    }
-    const data = (await r.json()) as any[];
-    
-    // Normalize Evolution API v2 response to match dashboard expectations
-    const normalized = data.map((chat: any) => ({
-      ...chat,
-      id: chat.remoteJid || chat.id,
-      name: chat.pushName || chat.name || chat.pushname || "Unknown",
-    }));
+        body: JSON.stringify({}),
+      }),
+      fetch(`${EVOLUTION_URL}/group/fetchAllGroups/${EVOLUTION_INSTANCE}?getParticipants=false`, {
+        headers: evolutionHeaders(),
+      }),
+    ]);
 
-    res.json(normalized);
+    const chats = chatsRes.ok ? (await chatsRes.json()) as any[] : [];
+    const groups = groupsRes.ok ? (await groupsRes.json()) as any[] : [];
+
+    // Map to keep track of unique chats by JID
+    const chatMap = new Map<string, any>();
+
+    // Add recent chats first
+    chats.forEach((chat: any) => {
+      const jid = chat.remoteJid || chat.id;
+      if (!jid) return;
+      chatMap.set(jid, {
+        ...chat,
+        id: jid,
+        name: chat.pushName || chat.name || chat.pushname || "Unknown",
+      });
+    });
+
+    // Add/Update with data from fetchAllGroups (more accurate group names)
+    groups.forEach((group: any) => {
+      const jid = group.id || group.remoteJid;
+      if (!jid) return;
+      
+      const existing = chatMap.get(jid);
+      chatMap.set(jid, {
+        ...(existing || {}),
+        ...group,
+        id: jid,
+        name: group.subject || group.name || (existing ? existing.name : "Unknown Group"),
+      });
+    });
+
+    res.json(Array.from(chatMap.values()));
   } catch (err) {
     res.status(502).json({ error: `Could not reach Evolution API at ${EVOLUTION_URL}: ${String(err)}` });
   }
