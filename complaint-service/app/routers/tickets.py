@@ -71,3 +71,10 @@ def delete_ticket(ticket_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Ticket not found")
     db.delete(ticket)
     db.commit()
+@router.delete("", status_code=status.HTTP_204_NO_CONTENT, summary="Clear all tickets")
+def clear_all_tickets(db: Session = Depends(get_db)):
+    from app.models import Ticket, MessageLog, SupervisorAction
+    db.query(SupervisorAction).delete()
+    db.query(MessageLog).delete()
+    db.query(Ticket).delete()
+    db.commit()

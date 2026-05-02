@@ -21,6 +21,13 @@ export class MessageRepository {
   public getAllMessages() {
     return rawMessages;
   }
+
+  /**
+   * Clear all raw messages.
+   */
+  public clearAll(): void {
+    rawMessages.splice(0, rawMessages.length);
+  }
 }
 
 export const messageRepository = new MessageRepository();

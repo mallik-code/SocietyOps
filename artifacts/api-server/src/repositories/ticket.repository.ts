@@ -52,7 +52,22 @@ export class TicketRepository {
       return (await response.json()) as Ticket;
     } catch (err) {
       logger.error({ err, id, status }, "Error updating ticket status in complaint-service");
-      return null;
+    }
+  }
+
+  /**
+   * Clear all tickets in the core service.
+   */
+  public async clearTickets(): Promise<void> {
+    try {
+      const response = await fetch(`${COMPLAINT_SERVICE_URL}/tickets`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        logger.error({ status: response.status }, "Failed to clear tickets in complaint-service");
+      }
+    } catch (err) {
+      logger.error({ err }, "Error connecting to complaint-service to clear tickets");
     }
   }
 }
