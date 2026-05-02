@@ -153,10 +153,11 @@ async def handle_evolution_event(
     """
 
     # ── 1. Event type gate ────────────────────────────────────────────────────
-    if event.event != "messages.upsert":
+    event_type = event.event
+    if event_type != "messages.upsert" and event_type != "MESSAGES_UPSERT":
         return EvolutionEventResponse(
             status="ignored",
-            reason=f"event '{event.event}' not handled",
+            reason=f"event '{event_type}' not handled",
         )
 
     data = event.data

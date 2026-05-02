@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { loadTrackedGroups, loadTrackedContacts } from "../lib/csv-loader";
+import { policyRepository } from "../repositories/policy.repository";
 
 const router: IRouter = Router();
 
@@ -24,14 +24,14 @@ export type TrackedContact = {
   created_at: string;
 };
 
-// Loaded from src/data/tracked_groups.csv — mutated in-place by /admin/seed endpoints
-export const trackedGroups: TrackedGroup[] = loadTrackedGroups();
+// Initialized to empty — populated from DB on startup in src/index.ts
+export const trackedGroups: TrackedGroup[] = [];
 
-// Loaded from src/data/tracked_contacts.csv — mutated in-place by /admin/seed endpoints
-export const trackedContacts: TrackedContact[] = loadTrackedContacts();
+// Initialized to empty — populated from DB on startup in src/index.ts
+export const trackedContacts: TrackedContact[] = [];
 
-let groupIdCounter = trackedGroups.length + 1;
-let contactIdCounter = trackedContacts.length + 1;
+let groupIdCounter = 1;
+let contactIdCounter = 1;
 
 
 router.get("/policies/groups", (_req, res): void => {
@@ -66,6 +66,7 @@ router.post("/policies/groups", (req, res): void => {
     created_at: new Date().toISOString(),
   };
   trackedGroups.push(newGroup);
+  policyRepository.saveGroup(newGroup);
   res.status(201).json(newGroup);
 });
 
@@ -84,6 +85,8 @@ router.patch("/policies/groups/:id", (req, res): void => {
   if (enabled !== undefined) group.enabled = enabled;
   if (name !== undefined) group.name = name;
   if (description !== undefined) group.description = description;
+  
+  policyRepository.updateGroup(group);
   res.json(group);
 });
 
@@ -94,7 +97,9 @@ router.delete("/policies/groups/:id", (req, res): void => {
     res.status(404).json({ error: "Group not found" });
     return;
   }
+  const group = trackedGroups[idx];
   trackedGroups.splice(idx, 1);
+  policyRepository.deleteGroup(group.group_id);
   res.json({ deleted: true, id });
 });
 
@@ -130,6 +135,7 @@ router.post("/policies/contacts", (req, res): void => {
     created_at: new Date().toISOString(),
   };
   trackedContacts.push(newContact);
+  policyRepository.saveContact(newContact);
   res.status(201).json(newContact);
 });
 
@@ -148,6 +154,8 @@ router.patch("/policies/contacts/:id", (req, res): void => {
   if (enabled !== undefined) contact.enabled = enabled;
   if (name !== undefined) contact.name = name;
   if (description !== undefined) contact.description = description;
+  
+  policyRepository.updateContact(contact);
   res.json(contact);
 });
 
@@ -158,7 +166,9 @@ router.delete("/policies/contacts/:id", (req, res): void => {
     res.status(404).json({ error: "Contact not found" });
     return;
   }
+  const contact = trackedContacts[idx];
   trackedContacts.splice(idx, 1);
+  policyRepository.deleteContact(contact.phone);
   res.json({ deleted: true, id });
 });
 

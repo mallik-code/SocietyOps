@@ -25,35 +25,46 @@ function evolutionHeaders() {
   return { apikey: EVOLUTION_KEY, "Content-Type": "application/json" };
 }
 
-async function ensureInstanceExists(): Promise<void> {
+export async function ensureInstanceExists(): Promise<void> {
   const r = await fetch(
     `${EVOLUTION_URL}/instance/fetchInstances?instanceName=${EVOLUTION_INSTANCE}`,
     { headers: evolutionHeaders() }
   );
-  if (!r.ok) return; // can't check — proceed anyway
+  if (!r.ok) {
+    console.error(`Failed to fetch instances: ${r.status}`);
+    return;
+  }
   const instances = (await r.json()) as unknown[];
   const webhookUrl = process.env.WEBHOOK_URL || "http://api-server:3001/api/webhooks/evolution";
   const webhookConfig = {
     url: webhookUrl,
-    webhook_by_events: false,
+    enabled: true,
+    webhook_by_events: true,
     webhook_base64: false,
-    events: ["MESSAGES_UPSERT"],
+    events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE"],
   };
 
   if (Array.isArray(instances) && instances.length > 0) {
     // Instance exists, just update the webhook
-    await fetch(`${EVOLUTION_URL}/webhook/set/${EVOLUTION_INSTANCE}`, {
+    console.log(`Instance ${EVOLUTION_INSTANCE} exists. Syncing webhook to ${webhookUrl}...`);
+    const wr = await fetch(`${EVOLUTION_URL}/webhook/set/${EVOLUTION_INSTANCE}`, {
       method: "POST",
       headers: evolutionHeaders(),
       body: JSON.stringify({
         webhook: webhookConfig
       }),
     });
+    if (wr.ok) {
+      console.log(`Webhook successfully synced for ${EVOLUTION_INSTANCE}`);
+    } else {
+      console.error(`Failed to sync webhook: ${wr.status} - ${await wr.text()}`);
+    }
     return;
   }
 
   // Instance doesn't exist — create it
-  await fetch(`${EVOLUTION_URL}/instance/create`, {
+  console.log(`Instance ${EVOLUTION_INSTANCE} does not exist. Creating with webhook ${webhookUrl}...`);
+  const cr = await fetch(`${EVOLUTION_URL}/instance/create`, {
     method: "POST",
     headers: evolutionHeaders(),
     body: JSON.stringify({
@@ -63,6 +74,11 @@ async function ensureInstanceExists(): Promise<void> {
       webhook_evolution: webhookConfig,
     }),
   });
+  if (cr.ok) {
+    console.log(`Instance ${EVOLUTION_INSTANCE} successfully created.`);
+  } else {
+    console.error(`Failed to create instance: ${cr.status} - ${await cr.text()}`);
+  }
 }
 
 // ── WhatsApp routes ───────────────────────────────────────────────────────────

@@ -1,4 +1,5 @@
 import { messageRepository } from "../repositories/message.repository";
+import { policyRepository } from "../repositories/policy.repository";
 import { logger } from "../lib/logger";
 import { trackedGroups, trackedContacts } from "../routes/policies";
 
@@ -6,8 +7,10 @@ const COMPLAINT_SERVICE_URL = process.env.COMPLAINT_SERVICE_URL || "http://api:8
 
 export class WebhookService {
   public async processEvolutionWebhook(payload: any): Promise<void> {
+    const event = payload.event || payload.type;
+    logger.info({ event, instance: payload.instance }, "Received Evolution webhook");
+
     // 1. Forward to the core complaint service (FastAPI)
-    // We do this first so that tickets are created even if the dashboard logic fails.
     try {
       const response = await fetch(`${COMPLAINT_SERVICE_URL}/evolution/events`, {
         method: "POST",
@@ -25,31 +28,47 @@ export class WebhookService {
     }
 
     // 2. Process for the dashboard
-    // We only care about messages.upsert for the dashboard view
-    if (payload.event !== "messages.upsert") {
+    // Handle both v1 (messages.upsert) and v2 (MESSAGES_UPSERT)
+    if (event !== "messages.upsert" && event !== "MESSAGES_UPSERT") {
       return;
     }
 
     const data = payload.data;
     if (!data || !data.key || data.key.fromMe) {
-      return; // Skip if no data or message is from the bot itself
+      logger.debug("Skipping message: no data or from me");
+      return;
     }
 
-    // Extract text
+    // Extract text from various possible locations in Evolution payload
     let text = "";
-    if (data.message?.conversation) {
-      text = data.message.conversation;
-    } else if (data.message?.extendedTextMessage?.text) {
-      text = data.message.extendedTextMessage.text;
+    const message = data.message;
+    if (message) {
+      if (message.conversation) {
+        text = message.conversation;
+      } else if (message.extendedTextMessage?.text) {
+        text = message.extendedTextMessage.text;
+      } else if (message.imageMessage?.caption) {
+        text = message.imageMessage.caption;
+      } else if (message.videoMessage?.caption) {
+        text = message.videoMessage.caption;
+      } else if (message.buttonsResponseMessage?.selectedButtonId) {
+        text = message.buttonsResponseMessage.selectedButtonId;
+      } else if (message.templateButtonReplyMessage?.selectedId) {
+        text = message.templateButtonReplyMessage.selectedId;
+      }
     }
 
     if (!text) {
-      return; // No text content
+      logger.debug({ data }, "No text content found in message payload");
+      return;
     }
 
-    const isGroup = data.key.remoteJid?.endsWith("@g.us");
-    const sender = data.pushName || data.key.participant || data.key.remoteJid || "Unknown";
-    const groupName = isGroup ? data.key.remoteJid : null;
+    const remoteJid = data.key.remoteJid;
+    const isGroup = remoteJid?.endsWith("@g.us");
+    const sender = data.pushName || data.key.participant || remoteJid || "Unknown";
+    const groupName = isGroup ? remoteJid : null;
+
+    logger.info({ sender, isGroup, text: text.substring(0, 20) }, "Processing new message for dashboard");
 
     const newMessage = {
       id: Date.now(),
@@ -60,19 +79,25 @@ export class WebhookService {
       timestamp: new Date().toISOString(),
     };
 
-    // Save to repository (in-memory list)
-    messageRepository.saveRawMessage(newMessage);
+    // Save to repository (in-memory list and DB)
+    await messageRepository.saveRawMessage(newMessage);
 
     // Update message counts for policies
     if (isGroup) {
-      const group = trackedGroups.find(g => g.group_id === data.key.remoteJid);
+      const group = trackedGroups.find(g => g.group_id === remoteJid);
       if (group) {
         group.message_count++;
+        policyRepository.updateGroup(group);
+        logger.info({ groupId: remoteJid }, "Incremented group message count");
       }
     } else {
-      const contact = trackedContacts.find(c => c.phone === data.key.remoteJid?.split("@")[0]);
+      // Normalize JID for contact matching (remove @s.whatsapp.net and optional +)
+      const phone = remoteJid?.split("@")[0].replace(/\+/g, "");
+      const contact = trackedContacts.find(c => c.phone.replace(/\+/g, "") === phone);
       if (contact) {
         contact.message_count++;
+        policyRepository.updateContact(contact);
+        logger.info({ phone }, "Incremented contact message count");
       }
     }
   }

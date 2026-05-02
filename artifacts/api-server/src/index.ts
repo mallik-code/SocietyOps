@@ -16,8 +16,23 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
+import { messageRepository } from "./repositories/message.repository";
+import { policyRepository } from "./repositories/policy.repository";
+
 runMigrations()
-  .then(() => {
+  .then(async () => {
+    // Populate in-memory cache from database
+    await messageRepository.loadFromDb();
+    await policyRepository.loadFromDb();
+
+    // Ensure WhatsApp instance and webhook are configured
+    try {
+      const { ensureInstanceExists } = await import("./routes/connect");
+      await ensureInstanceExists();
+    } catch (err) {
+      logger.error({ err }, "Failed to ensure WhatsApp instance exists on startup");
+    }
+
     app.listen(port, (err) => {
       if (err) {
         logger.error({ err }, "Error listening on port");

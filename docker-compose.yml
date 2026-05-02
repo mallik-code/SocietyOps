@@ -226,7 +226,7 @@ services:
 
       # GROQ AI classifier
       GROQ_API_KEY: ${GROQ_API_KEY:-}
-      GROQ_MODEL: ${GROQ_MODEL:-llama3-8b-8192}
+      GROQ_MODEL: ${GROQ_MODEL:-llama-3.1-8b-instant}
 
       # Daily report scheduler
       REPORT_GROUP_ID: ${REPORT_GROUP_ID:-}

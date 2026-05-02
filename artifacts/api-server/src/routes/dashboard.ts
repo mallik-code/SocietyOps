@@ -20,16 +20,18 @@ export type Ticket = {
   updated_at: string | null;
 };
 
-// Seed data fallback
-export const tickets: Ticket[] = loadTickets();
-export const rawMessages = loadRawMessages() as Array<{
+// Initialized to empty — populated from DB on startup in src/index.ts
+export const tickets: Ticket[] = [];
+
+// Initialized to empty — populated from DB on startup in src/index.ts
+export const rawMessages: Array<{
   id: number;
   text: string;
   sender: string;
   group_name: string | null;
   category: string | null;
   timestamp: string;
-}>;
+}> = [];
 
 // Dashboard endpoints mapped to controller
 router.get("/dashboard/stats", ticketController.getStats);

@@ -1,11 +1,20 @@
 import { rawMessages, tickets, Ticket } from "../routes/dashboard";
+import { pool } from "@workspace/db";
 
 export class MessageRepository {
   /**
-   * Save a raw message to the in-memory store.
+   * Save a raw message to the in-memory store and database.
    */
-  public saveRawMessage(message: any): void {
+  public async saveRawMessage(message: any): Promise<void> {
     rawMessages.unshift(message);
+    try {
+      await pool.query(
+        "INSERT INTO raw_messages (text, sender, group_name, category, timestamp) VALUES ($1, $2, $3, $4, $5)",
+        [message.text, message.sender, message.group_name, message.category, message.timestamp]
+      );
+    } catch (err) {
+      console.error("Failed to save message to DB", err);
+    }
   }
 
   /**
@@ -23,10 +32,34 @@ export class MessageRepository {
   }
 
   /**
-   * Clear all raw messages.
+   * Clear all raw messages and database entries.
    */
-  public clearAll(): void {
+  public async clearAll(): Promise<void> {
     rawMessages.splice(0, rawMessages.length);
+    try {
+      await pool.query("DELETE FROM raw_messages");
+    } catch (err) {
+      console.error("Failed to clear messages from DB", err);
+    }
+  }
+
+  /**
+   * Load messages from DB into memory on startup.
+   */
+  public async loadFromDb(): Promise<void> {
+    try {
+      const res = await pool.query("SELECT * FROM raw_messages ORDER BY timestamp DESC LIMIT 100");
+      rawMessages.splice(0, rawMessages.length, ...res.rows.map(r => ({
+        id: r.id,
+        text: r.text,
+        sender: r.sender,
+        group_name: r.group_name,
+        category: r.category,
+        timestamp: r.timestamp.toISOString()
+      })));
+    } catch (err) {
+      console.error("Failed to load messages from DB", err);
+    }
   }
 }
 

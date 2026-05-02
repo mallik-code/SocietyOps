@@ -6,6 +6,7 @@ export class WebhookController {
   public handleEvolutionWebhook = async (req: Request, res: Response): Promise<void> => {
     try {
       const payload = req.body;
+      logger.info({ payload }, "Evolution Webhook Request Body");
       await webhookService.processEvolutionWebhook(payload);
       res.status(200).json({ success: true, message: "Webhook processed successfully" });
     } catch (error) {

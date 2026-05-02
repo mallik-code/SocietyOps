@@ -38,7 +38,7 @@ structured, trackable ticket system — with zero friction for residents.
 | Framework | FastAPI 0.115 + Uvicorn |
 | Database | SQLite via SQLAlchemy 2.0 ORM |
 | Validation | Pydantic v2 |
-| AI classifier | GROQ API (`llama3-8b-8192`) with keyword fallback |
+| AI classifier | GROQ API (`llama-3.1-8b-instant`) with keyword fallback |
 | HTTP client | httpx (async) |
 | Scheduler | APScheduler 3.10 (daily reports) |
 | Container | Python 3.12-slim (multi-stage) |
@@ -91,24 +91,35 @@ Resident → WhatsApp Group
     └──────────┬──────────┘
                │  POST /evolution/events
                ▼
-    ┌─────────────────────────────────────────────────────────────────┐
-    │               FastAPI — complaint-service (port 8000)           │
-    │                                                                 │
-    │  1. Pydantic validates IncomingMessage                          │
-    │  2. MessageLog inserted (raw audit trail)                       │
-    │  3. Policy Engine — Phase 1 (inbound gate)                      │
-    │       group_filter → sender_filter → keyword_block → length     │
-    │  4. GROQ AI Classifier                                          │
-    │       → category (plumbing/electrical/security/…)               │
-    │       → priority (LOW/MEDIUM/HIGH/CRITICAL)                     │
-    │       → confidence score                                        │
-    │       (falls back to keyword scan if GROQ unavailable)          │
-    │  5. Policy Engine — Phase 2 (post-classification gate)          │
-    │       confidence_threshold → read_only_mode → casual_reply      │
-    │  6. Ticket created in SQLite                                    │
-    │  7. WhatsApp reply sent via Evolution API                       │
-    │  8. APScheduler → daily report to REPORT_GROUP_ID at cron time  │
-    └─────────────────────────────────────────────────────────────────┘
+     ┌─────────────────────────────────────────────────────────────────┐
+     │           Express API Server — api-server (port 3001)           │
+     │                                                                 │
+     │  1. Receives webhook from Evolution API                          │
+     │  2. Normalizes event (v1 messages.upsert / v2 MESSAGES_UPSERT)  │
+     │  3. Extracts text from conversation/extended/image/buttons       │
+     │  4. Updates in-memory rawMessages list (Real-time Dashboard)     │
+     │  5. Forwards webhook to complaint-service                        │
+     └─────────────────────────────────────────────────────────────────┘
+                │
+                ▼
+     ┌─────────────────────────────────────────────────────────────────┐
+     │               FastAPI — complaint-service (port 8000)           │
+     │                                                                 │
+     │  1. Pydantic validates IncomingMessage                          │
+     │  2. MessageLog inserted (raw audit trail)                       │
+     │  3. Policy Engine — Phase 1 (inbound gate)                      │
+     │       group_filter → sender_filter → keyword_block → length     │
+     │  4. GROQ AI Classifier (LLaMA 3.1)                              │
+     │       → category (plumbing/electrical/security/…)               │
+     │       → priority (LOW/MEDIUM/HIGH/CRITICAL)                     │
+     │       → confidence score                                        │
+     │       (falls back to keyword scan if GROQ unavailable)          │
+     │  5. Policy Engine — Phase 2 (post-classification gate)          │
+     │       confidence_threshold → read_only_mode → casual_reply      │
+     │  6. Ticket created in SQLite                                    │
+     │  7. WhatsApp reply sent via Evolution API                       │
+     │  8. APScheduler → daily report to REPORT_GROUP_ID at cron time  │
+     └─────────────────────────────────────────────────────────────────┘
                │
                ▼
     ┌─────────────────────────────────────────────────────────────────┐
@@ -118,6 +129,7 @@ Resident → WhatsApp Group
     │  GET/POST /api/policies → tracked groups, contacts              │
     │  GET /api/connect/*     → WhatsApp QR code generation           │
     │  POST /api/ai/chat      → AI assistant (SSE streaming)          │
+    │  POST /api/webhooks/ev* → Webhook entry point (v1/v2 support)   │
     └─────────────────────────────────────────────────────────────────┘
                │
                ▼
@@ -321,7 +333,7 @@ See [.env.example](.env.example) for the full documented list.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `GROQ_API_KEY` | — | GROQ API key; empty = keyword fallback |
-| `GROQ_MODEL` | `llama3-8b-8192` | GROQ model name |
+| `GROQ_MODEL` | `llama-3.1-8b-instant` | GROQ model name |
 | `EVOLUTION_API_KEY` | `change-me-strong-key-123` | API key for Evolution (change this) |
 | `EVOLUTION_INSTANCE` | `complaint-bot` | WhatsApp instance name |
 | `EVOLUTION_DB_PASSWORD` | `evolution_pass` | Postgres password for Evolution |
@@ -390,7 +402,9 @@ page in the React dashboard which fetches the QR via the api-server.
 **Messages not being received**
 1. Check `docker compose logs evolution` for connection status.
 2. Verify `EVOLUTION_API_KEY` matches in both `.env` and docker-compose.yml.
-3. Confirm the webhook is pointing to `http://api:8000/evolution/events` (internal Docker DNS).
+3. Confirm the webhook is registered. Check `api-server` logs for "Syncing webhook". Evolution v2 requires `enabled: true`.
+4. Check if you are using Evolution API v2 (uppercase `MESSAGES_UPSERT`) or v1 (lowercase `messages.upsert`). The current `api-server` handles both.
+5. Check `api-server` logs for "Evolution Webhook Request Body" to see if data is arriving.
 
 **Tickets not being created (no AI errors)**
 Check `MIN_CONFIDENCE` — if the message has low confidence the policy engine skips ticket creation.

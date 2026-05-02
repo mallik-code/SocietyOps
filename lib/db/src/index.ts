@@ -28,6 +28,35 @@ export async function runMigrations(): Promise<void> {
       content         TEXT NOT NULL,
       created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+
+    CREATE TABLE IF NOT EXISTS tracked_groups (
+      id            SERIAL PRIMARY KEY,
+      name          TEXT NOT NULL,
+      group_id      TEXT NOT NULL UNIQUE,
+      description   TEXT,
+      enabled       BOOLEAN NOT NULL DEFAULT TRUE,
+      message_count INTEGER NOT NULL DEFAULT 0,
+      created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS tracked_contacts (
+      id            SERIAL PRIMARY KEY,
+      name          TEXT NOT NULL,
+      phone         TEXT NOT NULL UNIQUE,
+      description   TEXT,
+      enabled       BOOLEAN NOT NULL DEFAULT TRUE,
+      message_count INTEGER NOT NULL DEFAULT 0,
+      created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS raw_messages (
+      id          SERIAL PRIMARY KEY,
+      text        TEXT NOT NULL,
+      sender      TEXT NOT NULL,
+      group_name  TEXT,
+      category    TEXT,
+      timestamp   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
   `);
 }
 
