@@ -243,6 +243,15 @@ export interface ErrorResponse {
   error: string;
 }
 
+export interface WhatsappChat {
+  /** WhatsApp JID (e.g. 120363012345678901@g.us) */
+  id: string;
+  name?: string | null;
+  pushname?: string | null;
+  unreadCount?: number;
+  isGroup?: boolean;
+}
+
 export type ListTicketsParams = {
   status?: string;
   priority?: string;

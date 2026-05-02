@@ -385,6 +385,21 @@ paths:
               schema:
                 $ref: "#/components/schemas/WhatsappQrResponse"
 
+  /connect/whatsapp/chats:
+    get:
+      operationId: listWhatsappChats
+      tags: [connect]
+      summary: List all WhatsApp chats from the connected instance
+      responses:
+        "200":
+          description: List of chats (groups and contacts)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WhatsappChat"
+
   /connect/whatsapp/status:
     get:
       operationId: getWhatsappConnectStatus
@@ -1047,3 +1062,22 @@ components:
         error:
           type: string
       required: [error]
+
+    WhatsappChat:
+      type: object
+      properties:
+        id:
+          type: string
+          description: WhatsApp JID (e.g. 120363012345678901@g.us)
+        name:
+          type: string
+          nullable: true
+        pushname:
+          type: string
+          nullable: true
+        unreadCount:
+          type: integer
+        isGroup:
+          type: boolean
+      required: [id]
+

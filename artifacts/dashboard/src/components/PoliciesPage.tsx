@@ -9,6 +9,7 @@ import {
   useUpdateTrackedContact,
   useDeleteTrackedGroup,
   useDeleteTrackedContact,
+  useListWhatsappChats,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +23,7 @@ import {
   Calendar,
   ToggleLeft,
   ToggleRight,
+  RefreshCw,
   AlertCircle,
   ChevronRight,
 } from "lucide-react";
@@ -62,6 +64,11 @@ function AddGroupForm({ onClose }: { onClose: () => void }) {
   const [groupId, setGroupId] = useState("");
   const [description, setDescription] = useState("");
   const [error, setError] = useState("");
+  const [showPicker, setShowPicker] = useState(false);
+
+  const { data: waStatus } = useListWhatsappChats({
+    query: { enabled: showPicker },
+  });
 
   const { mutate, isPending } = useAddTrackedGroup({
     mutation: {
@@ -85,9 +92,57 @@ function AddGroupForm({ onClose }: { onClose: () => void }) {
     mutate({ data: { name: name.trim(), group_id: groupId.trim(), description: description.trim() || null } });
   };
 
+  const selectGroup = (group: any) => {
+    setName(group.name || group.pushname || "Unnamed Group");
+    setGroupId(group.id);
+    setShowPicker(false);
+  };
+
   return (
     <form onSubmit={handleSubmit} className="border border-border rounded-lg p-4 bg-muted/30 space-y-3">
-      <p className="text-sm font-semibold text-foreground">Add WhatsApp Group</p>
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-semibold text-foreground">Add WhatsApp Group</p>
+        <button
+          type="button"
+          onClick={() => setShowPicker(!showPicker)}
+          className="flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded border border-primary/20 bg-primary/5 text-primary hover:bg-primary/10 transition-colors"
+        >
+          <RefreshCw className={`w-3 h-3 ${showPicker && !waStatus ? "animate-spin" : ""}`} />
+          {showPicker ? "Hide List" : "Fetch from WhatsApp"}
+        </button>
+      </div>
+
+      {showPicker && (
+        <div className="border border-border rounded-md bg-background overflow-hidden mb-3">
+          <div className="max-h-[160px] overflow-y-auto">
+            {!waStatus ? (
+              <div className="p-3 text-center text-xs text-muted-foreground italic">
+                Loading chats from WhatsApp instance...
+              </div>
+            ) : waStatus.filter(c => c.id.includes("@g.us")).length === 0 ? (
+              <div className="p-3 text-center text-xs text-muted-foreground italic">
+                No groups found.
+              </div>
+            ) : (
+              waStatus.filter(c => c.id.includes("@g.us")).map((chat) => (
+                <button
+                  key={chat.id}
+                  type="button"
+                  onClick={() => selectGroup(chat)}
+                  className="w-full text-left px-3 py-2 text-xs hover:bg-muted border-b border-border/50 last:border-0 flex items-center justify-between group"
+                >
+                  <div className="truncate pr-2">
+                    <span className="font-medium text-foreground">{chat.name || chat.pushname || "Unknown"}</span>
+                    <span className="ml-2 text-muted-foreground font-mono opacity-60">{chat.id}</span>
+                  </div>
+                  <Plus className="w-3 h-3 text-primary opacity-0 group-hover:opacity-100" />
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
       {error && (
         <div className="flex items-center gap-2 text-xs text-destructive bg-destructive/10 rounded-md px-3 py-2">
           <AlertCircle className="w-3.5 h-3.5 shrink-0" />

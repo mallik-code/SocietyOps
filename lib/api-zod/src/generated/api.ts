@@ -8,6 +8,20 @@
 import * as zod from "zod";
 
 /**
+ * @summary Restore all test data to its initial state
+ */
+export const ImportTestDataResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary Delete all test data (tickets, messages, groups, contacts)
+ */
+export const ClearTestDataResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({
@@ -255,6 +269,20 @@ export const GetWhatsappQrResponse = zod.object({
   status: zod.enum(["disconnected", "waiting_scan", "connected"]),
   pairing_token: zod.string(),
 });
+
+/**
+ * @summary List all WhatsApp chats from the connected instance
+ */
+export const ListWhatsappChatsResponseItem = zod.object({
+  id: zod.string().describe("WhatsApp JID (e.g. 120363012345678901@g.us)"),
+  name: zod.string().nullish(),
+  pushname: zod.string().nullish(),
+  unreadCount: zod.number().optional(),
+  isGroup: zod.boolean().optional(),
+});
+export const ListWhatsappChatsResponse = zod.array(
+  ListWhatsappChatsResponseItem,
+);
 
 /**
  * @summary Get detailed WhatsApp connection status

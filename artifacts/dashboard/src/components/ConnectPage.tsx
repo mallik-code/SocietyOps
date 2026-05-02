@@ -108,17 +108,7 @@ function WhatsAppPanel() {
     else setPolling(true);
   }, [status?.connected]);
 
-  // Simulate connect for demo
-  const { mutate: simulateConnect, isPending: simPending } = useMutation({
-    mutationFn: async () => {
-      const res = await fetch("/api/connect/whatsapp/_simulate_connect", { method: "POST" });
-      if (!res.ok) throw new Error("Failed");
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries();
-      toast({ title: "WhatsApp paired!", description: "Instance is now connected." });
-    },
-  });
+
 
   const connected = status?.connected ?? false;
 
@@ -199,18 +189,7 @@ function WhatsAppPanel() {
               </div>
             )}
 
-            {/* Demo helper */}
-            <div className="w-full border-t border-dashed border-border pt-4 flex flex-col items-center gap-2">
-              <p className="text-xs text-muted-foreground">Demo environment — simulate a successful scan:</p>
-              <button
-                onClick={() => simulateConnect()}
-                disabled={simPending}
-                className="flex items-center gap-2 px-4 py-2 rounded-md bg-green-500 hover:bg-green-600 text-white text-sm font-medium transition-colors"
-              >
-                {simPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                Simulate Scan
-              </button>
-            </div>
+
           </CardContent>
         </Card>
       ) : (

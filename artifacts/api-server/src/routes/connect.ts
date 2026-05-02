@@ -104,6 +104,35 @@ router.get("/connect/whatsapp/qr", async (_req, res) => {
   }
 });
 
+router.get("/connect/whatsapp/chats", async (_req, res) => {
+  try {
+    const r = await fetch(
+      `${EVOLUTION_URL}/chat/findChats/${EVOLUTION_INSTANCE}`,
+      { 
+        method: "POST",
+        headers: evolutionHeaders(),
+        body: JSON.stringify({})
+      }
+    );
+    if (!r.ok) {
+      res.status(502).json({ error: `Evolution API error: ${r.status}` });
+      return;
+    }
+    const data = (await r.json()) as any[];
+    
+    // Normalize Evolution API v2 response to match dashboard expectations
+    const normalized = data.map((chat: any) => ({
+      ...chat,
+      id: chat.remoteJid || chat.id,
+      name: chat.pushName || chat.name || chat.pushname || "Unknown",
+    }));
+
+    res.json(normalized);
+  } catch (err) {
+    res.status(502).json({ error: `Could not reach Evolution API at ${EVOLUTION_URL}: ${String(err)}` });
+  }
+});
+
 router.get("/connect/whatsapp/status", async (_req, res) => {
   try {
     const r = await fetch(

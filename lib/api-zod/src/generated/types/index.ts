@@ -34,6 +34,7 @@ export * from "./trackedContactInput";
 export * from "./trackedGroup";
 export * from "./trackedGroupInput";
 export * from "./trackedItemPatch";
+export * from "./whatsappChat";
 export * from "./whatsappConnectStatus";
 export * from "./whatsappConnectStatusState";
 export * from "./whatsappQrResponse";
