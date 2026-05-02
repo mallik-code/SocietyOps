@@ -1,0 +1,10 @@
+**/node_modules/
+**/dist/
+**/.turbo/
+**/.cache/
+**/.vite/
+**/__pycache__/
+**/*.pyc
+.git/
+.github/
+complaint-service/
