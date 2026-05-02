@@ -22,6 +22,7 @@ import {
   Copy,
   Check,
   Settings2,
+  Database,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
@@ -29,11 +30,20 @@ interface PromptPageProps {
   isDark: boolean;
 }
 
+interface ContextMeta {
+  tickets: number;
+  open_tickets: number;
+  high_priority: number;
+  groups: number;
+  contacts: number;
+}
+
 interface StreamMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
   streaming?: boolean;
+  context_meta?: ContextMeta;
 }
 
 function CopyBtn({ text }: { text: string }) {
@@ -53,6 +63,21 @@ function CopyBtn({ text }: { text: string }) {
   );
 }
 
+function GroundingBadge({ meta }: { meta: ContextMeta }) {
+  return (
+    <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-violet-500/10 border border-violet-500/20 text-[10px] text-violet-600 dark:text-violet-400 font-medium w-fit">
+      <Database className="w-2.5 h-2.5" />
+      <span>
+        Grounded with {meta.tickets} tickets
+        {meta.open_tickets > 0 && ` (${meta.open_tickets} open`}
+        {meta.high_priority > 0 && `, ${meta.high_priority} high-priority`}
+        {meta.open_tickets > 0 && ")"}
+        {" · "}{meta.groups} groups · {meta.contacts} contacts
+      </span>
+    </div>
+  );
+}
+
 function MessageBubble({ msg }: { msg: StreamMessage }) {
   const isUser = msg.role === "user";
   return (
@@ -66,7 +91,7 @@ function MessageBubble({ msg }: { msg: StreamMessage }) {
       >
         {isUser ? <User className="w-3.5 h-3.5" /> : <Bot className="w-3.5 h-3.5" />}
       </div>
-      <div className={`flex flex-col gap-1 max-w-[75%] ${isUser ? "items-end" : "items-start"}`}>
+      <div className={`flex flex-col gap-1.5 max-w-[75%] ${isUser ? "items-end" : "items-start"}`}>
         <div
           className={`relative rounded-xl px-4 py-2.5 text-sm leading-relaxed ${
             isUser
@@ -86,8 +111,9 @@ function MessageBubble({ msg }: { msg: StreamMessage }) {
           )}
         </div>
         {!isUser && !msg.streaming && msg.content && (
-          <div className="flex items-center gap-1 px-1">
+          <div className="flex items-center gap-2 px-1 flex-wrap">
             <CopyBtn text={msg.content} />
+            {msg.context_meta && <GroundingBadge meta={msg.context_meta} />}
           </div>
         )}
       </div>
@@ -97,10 +123,10 @@ function MessageBubble({ msg }: { msg: StreamMessage }) {
 
 const STARTER_PROMPTS = [
   "Summarize the most common complaints this week",
-  "What complaint categories need immediate attention?",
+  "Which tickets need immediate attention right now?",
   "Draft a response template for water leak complaints",
-  "How should I prioritize high-priority vs urgent tickets?",
-  "Suggest improvements to the complaint workflow",
+  "Which block has the most open issues?",
+  "List all high-priority unresolved tickets",
 ];
 
 export function PromptPage({ isDark: _isDark }: PromptPageProps) {
@@ -115,6 +141,7 @@ export function PromptPage({ isDark: _isDark }: PromptPageProps) {
   const abortRef = useRef<AbortController | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const pendingInputRef = useRef<string | null>(null);
 
   const { data: conversations, isLoading: convsLoading } = useListAiConversations();
   const { data: savedMessages, isLoading: msgsLoading } = useListAiMessages(
@@ -155,6 +182,18 @@ export function PromptPage({ isDark: _isDark }: PromptPageProps) {
     }
   }, [savedMessages]);
 
+  // Auto-send pending input once a conversation is active
+  useEffect(() => {
+    if (activeId !== null && pendingInputRef.current) {
+      const text = pendingInputRef.current;
+      pendingInputRef.current = null;
+      // Give the state a tick to settle
+      setTimeout(() => {
+        setInput(text);
+      }, 50);
+    }
+  }, [activeId]);
+
   // Scroll to bottom
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -168,15 +207,19 @@ export function PromptPage({ isDark: _isDark }: PromptPageProps) {
     el.style.height = Math.min(el.scrollHeight, 160) + "px";
   }, [input]);
 
-  const handleNewChat = useCallback(() => {
-    const title = `Chat ${new Date().toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-    })}`;
-    createConv({ data: { title } });
-  }, [createConv]);
+  const handleNewChat = useCallback(
+    (prefill?: string) => {
+      const title = `Chat ${new Date().toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+      })}`;
+      if (prefill) pendingInputRef.current = prefill;
+      createConv({ data: { title } });
+    },
+    [createConv]
+  );
 
   const sendMessage = useCallback(
     async (text: string) => {
@@ -187,8 +230,9 @@ export function PromptPage({ isDark: _isDark }: PromptPageProps) {
         role: "user",
         content: text.trim(),
       };
+      const assistantMsgId = `ai-${Date.now()}`;
       const assistantMsg: StreamMessage = {
-        id: `ai-${Date.now()}`,
+        id: assistantMsgId,
         role: "assistant",
         content: "",
         streaming: true,
@@ -235,11 +279,12 @@ export function PromptPage({ isDark: _isDark }: PromptPageProps) {
                 content?: string;
                 done?: boolean;
                 error?: string;
+                context_meta?: ContextMeta;
               };
               if (data.error) {
                 setStreamMessages((prev) =>
                   prev.map((m) =>
-                    m.id === assistantMsg.id
+                    m.id === assistantMsgId
                       ? { ...m, content: `⚠️ ${data.error}`, streaming: false }
                       : m
                   )
@@ -249,7 +294,7 @@ export function PromptPage({ isDark: _isDark }: PromptPageProps) {
               if (data.content) {
                 setStreamMessages((prev) =>
                   prev.map((m) =>
-                    m.id === assistantMsg.id
+                    m.id === assistantMsgId
                       ? { ...m, content: m.content + data.content }
                       : m
                   )
@@ -258,10 +303,14 @@ export function PromptPage({ isDark: _isDark }: PromptPageProps) {
               if (data.done) {
                 setStreamMessages((prev) =>
                   prev.map((m) =>
-                    m.id === assistantMsg.id ? { ...m, streaming: false } : m
+                    m.id === assistantMsgId
+                      ? { ...m, streaming: false, context_meta: data.context_meta }
+                      : m
                   )
                 );
-                queryClient.invalidateQueries({ queryKey: ["/ai/conversations", { id: activeId }] });
+                queryClient.invalidateQueries({
+                  queryKey: ["/ai/conversations", { id: activeId }],
+                });
               }
             } catch {}
           }
@@ -271,7 +320,7 @@ export function PromptPage({ isDark: _isDark }: PromptPageProps) {
           toast({ title: "Failed to get response", variant: "destructive" });
           setStreamMessages((prev) =>
             prev.map((m) =>
-              m.id === assistantMsg.id
+              m.id === assistantMsgId
                 ? { ...m, content: "Something went wrong. Please try again.", streaming: false }
                 : m
             )
@@ -300,7 +349,7 @@ export function PromptPage({ isDark: _isDark }: PromptPageProps) {
       <aside className="w-64 shrink-0 border-r border-border flex flex-col bg-muted/30">
         <div className="p-3 border-b border-border">
           <button
-            onClick={handleNewChat}
+            onClick={() => handleNewChat()}
             disabled={creating}
             className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
           >
@@ -352,6 +401,17 @@ export function PromptPage({ isDark: _isDark }: PromptPageProps) {
           )}
         </div>
 
+        {/* RAG info */}
+        <div className="px-3 py-2 border-t border-border">
+          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+            <Database className="w-3 h-3 text-violet-500" />
+            <span>Live data grounding enabled</span>
+          </div>
+          <p className="text-[10px] text-muted-foreground/60 mt-0.5 leading-tight">
+            Tickets, groups &amp; contacts are fed into every request
+          </p>
+        </div>
+
         {/* System prompt toggle */}
         <div className="p-2 border-t border-border">
           <button
@@ -387,17 +447,19 @@ export function PromptPage({ isDark: _isDark }: PromptPageProps) {
             <div>
               <h2 className="text-xl font-semibold text-foreground mb-1">AI Assistant</h2>
               <p className="text-sm text-muted-foreground max-w-sm">
-                Powered by GPT. Ask anything about your complaints, tickets, or building management.
+                Powered by GPT with live data grounding — asks answered using your real tickets, groups, and contacts.
               </p>
+            </div>
+            {/* RAG info banner */}
+            <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-violet-500/10 border border-violet-500/20 text-xs text-violet-600 dark:text-violet-400 max-w-sm">
+              <Database className="w-3.5 h-3.5 shrink-0" />
+              <span>All tickets, groups &amp; contacts are automatically included as context in every message</span>
             </div>
             <div className="flex flex-col gap-2 w-full max-w-md">
               {STARTER_PROMPTS.map((p) => (
                 <button
                   key={p}
-                  onClick={() => {
-                    handleNewChat();
-                    setInput(p);
-                  }}
+                  onClick={() => handleNewChat(p)}
                   className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-border bg-background hover:bg-muted text-sm text-left text-muted-foreground hover:text-foreground transition-colors"
                 >
                   <ChevronRight className="w-3.5 h-3.5 shrink-0" />
@@ -406,7 +468,7 @@ export function PromptPage({ isDark: _isDark }: PromptPageProps) {
               ))}
             </div>
             <button
-              onClick={handleNewChat}
+              onClick={() => handleNewChat()}
               disabled={creating}
               className="flex items-center gap-2 px-5 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
             >
@@ -471,7 +533,7 @@ export function PromptPage({ isDark: _isDark }: PromptPageProps) {
                 )}
               </div>
               <p className="text-center text-[11px] text-muted-foreground mt-1.5">
-                Powered by Replit AI · Messages saved per conversation
+                Powered by Replit AI · Live data grounded · Messages saved per conversation
               </p>
             </div>
           </>

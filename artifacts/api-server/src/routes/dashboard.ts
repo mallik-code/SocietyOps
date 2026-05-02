@@ -14,7 +14,7 @@ import {
 
 const router: IRouter = Router();
 
-const tickets: Array<{
+export type Ticket = {
   id: number;
   message_text: string;
   category: string;
@@ -25,7 +25,9 @@ const tickets: Array<{
   group_name: string | null;
   created_at: string;
   updated_at: string | null;
-}> = [
+};
+
+export const tickets: Ticket[] = [
   {
     id: 1,
     message_text: "The lift in Block A has been stuck on floor 3 since yesterday morning. Several residents are unable to use it.",

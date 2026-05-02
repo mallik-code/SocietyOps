@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 
 const router: IRouter = Router();
 
-type TrackedGroup = {
+export type TrackedGroup = {
   id: number;
   name: string;
   group_id: string;
@@ -12,7 +12,7 @@ type TrackedGroup = {
   created_at: string;
 };
 
-type TrackedContact = {
+export type TrackedContact = {
   id: number;
   name: string;
   phone: string;
@@ -22,7 +22,7 @@ type TrackedContact = {
   created_at: string;
 };
 
-const trackedGroups: TrackedGroup[] = [
+export const trackedGroups: TrackedGroup[] = [
   {
     id: 1,
     name: "Block A Residents",
@@ -79,7 +79,7 @@ const trackedGroups: TrackedGroup[] = [
   },
 ];
 
-const trackedContacts: TrackedContact[] = [
+export const trackedContacts: TrackedContact[] = [
   {
     id: 1,
     name: "Ahmed Al-Rashid",
