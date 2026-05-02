@@ -145,7 +145,7 @@ export function PromptPage({ isDark: _isDark }: PromptPageProps) {
 
   const { data: conversations, isLoading: convsLoading } = useListAiConversations();
   const { data: savedMessages, isLoading: msgsLoading } = useListAiMessages(
-    { id: activeId ?? 0 },
+    activeId ?? 0,
     { query: { enabled: activeId !== null } }
   );
 
@@ -153,7 +153,14 @@ export function PromptPage({ isDark: _isDark }: PromptPageProps) {
     mutation: {
       onSuccess: (conv) => {
         queryClient.invalidateQueries({ queryKey: ["/ai/conversations"] });
-        setActiveId(conv.id);
+        // Safely extract the ID in case the response is nested (e.g., Axios-style { data: { id: ... } }) 
+        // or if it's the variables object.
+        const newId = (conv as any)?.data?.id ?? (conv as any)?.id;
+        if (typeof newId === "number") {
+          setActiveId(newId);
+        } else {
+          console.error("Failed to extract numeric ID from conversation response:", conv);
+        }
         setStreamMessages([]);
       },
     },
