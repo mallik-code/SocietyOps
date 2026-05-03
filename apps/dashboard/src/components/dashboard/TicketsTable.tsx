@@ -9,7 +9,8 @@ import {
   type ColumnDef,
   type SortingState,
 } from "@tanstack/react-table";
-import { useListTickets, useUpdateTicketStatus } from "@workspace/api-client-react";
+import { Trash2, Search } from "lucide-react";
+import { useListTickets, useUpdateTicketStatus, useDeleteTicket } from "@workspace/api-client-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -19,7 +20,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
-import { Search } from "lucide-react";
 
 export function TicketsTable() {
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -36,6 +36,7 @@ export function TicketsTable() {
 
   const loading = isLoading || isFetching;
   const updateStatus = useUpdateTicketStatus();
+  const deleteTicket = useDeleteTicket();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -52,6 +53,20 @@ export function TicketsTable() {
         }
       }
     );
+  };
+
+
+  const handleDeleteTicket = (id: number) => {
+    if (!confirm("Are you sure you want to delete this ticket?")) return;
+    deleteTicket.mutate({ id }, {
+      onSuccess: () => {
+        toast({ title: "Ticket deleted successfully" });
+        queryClient.invalidateQueries();
+      },
+      onError: () => {
+        toast({ title: "Failed to delete ticket", variant: "destructive" });
+      }
+    });
   };
 
   const columns = useMemo<ColumnDef<any>[]>(() => [
@@ -156,7 +171,22 @@ export function TicketsTable() {
         );
       },
     },
-  ], [updateStatus.isPending]);
+    {
+      id: "actions",
+      header: "",
+      cell: ({ row }) => (
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          disabled={deleteTicket.isPending}
+          onClick={() => handleDeleteTicket(row.original.id)}
+          className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      ),
+    },
+  ], [updateStatus.isPending, deleteTicket.isPending]);
 
   const table = useReactTable({
     data: data || [],

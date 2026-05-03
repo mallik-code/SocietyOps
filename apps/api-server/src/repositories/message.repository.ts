@@ -64,6 +64,24 @@ export class MessageRepository {
       console.error("Failed to load messages from DB", err);
     }
   }
+
+  /**
+   * Delete a single message from in-memory store and database.
+   */
+  public async deleteMessage(id: number): Promise<boolean> {
+    const index = rawMessages.findIndex(m => m.id === id);
+    if (index !== -1) {
+      rawMessages.splice(index, 1);
+    }
+    
+    try {
+      await pool.query("DELETE FROM raw_messages WHERE id = $1", [id]);
+      return true;
+    } catch (err) {
+      console.error("Failed to delete message from DB", err);
+      return false;
+    }
+  }
 }
 
 export const messageRepository = new MessageRepository();

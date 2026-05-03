@@ -88,6 +88,16 @@ export class TicketController {
     }
     res.json(UpdateTicketStatusResponse.parse(ticket));
   };
+
+  public deleteTicket = async (req: Request, res: Response): Promise<void> => {
+    const id = parseInt(req.params.id, 10);
+    const success = await ticketRepository.deleteTicket(id);
+    if (!success) {
+      res.status(404).json({ error: "Ticket not found or failed to delete" });
+      return;
+    }
+    res.status(204).send();
+  };
 }
 
 export const ticketController = new TicketController();

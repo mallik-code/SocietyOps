@@ -2,8 +2,8 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { conversations, messages, insertConversationSchema, insertMessageSchema } from "@workspace/db/schema";
 import { openai } from "@workspace/integrations-openai-ai-server";
-import { eq, asc } from "drizzle-orm";
-import { tickets } from "./dashboard.js";
+import { eq, asc, desc } from "drizzle-orm";
+import { ticketRepository } from "../repositories/ticket.repository";
 import { trackedGroups, trackedContacts } from "./policies.js";
 
 const router: IRouter = Router();
@@ -32,8 +32,9 @@ type ContextMeta = {
   contacts: number;
 };
 
-function buildRagContext(): { context: string; meta: ContextMeta } {
+async function buildRagContext(): Promise<{ context: string; meta: ContextMeta }> {
   const now = new Date().toISOString();
+  const tickets = await ticketRepository.getAllTickets();
 
   // Stats
   const total = tickets.length;
@@ -148,7 +149,7 @@ router.get("/ai/conversations", async (_req, res) => {
   const rows = await db
     .select()
     .from(conversations)
-    .orderBy(asc(conversations.createdAt));
+    .orderBy(desc(conversations.createdAt));
   res.json(
     rows.map((c) => ({
       id: c.id,
@@ -221,7 +222,7 @@ router.post("/ai/chat", async (req, res) => {
   }
 
   // Build RAG context from live data
-  const { context: ragContext, meta: contextMeta } = buildRagContext();
+  const { context: ragContext, meta: contextMeta } = await buildRagContext();
 
   // Fetch conversation history
   const history = await db

@@ -96,6 +96,25 @@ export class TicketRepository {
       logger.error({ err }, "Error connecting to complaint-service to clear tickets");
     }
   }
+
+  /**
+   * Delete a single ticket in the core service.
+   */
+  public async deleteTicket(id: number): Promise<boolean> {
+    try {
+      const response = await fetch(`${COMPLAINT_SERVICE_URL}/tickets/${id}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        logger.error({ status: response.status, id }, "Failed to delete ticket in complaint-service");
+        return false;
+      }
+      return true;
+    } catch (err) {
+      logger.error({ err, id }, "Error connecting to complaint-service to delete ticket");
+      return false;
+    }
+  }
 }
 
 export const ticketRepository = new TicketRepository();

@@ -1087,6 +1087,89 @@ export const useUpdateTicketStatus = <
 };
 
 /**
+ * @summary Delete a single ticket
+ */
+export const getDeleteTicketUrl = (id: number) => {
+  return `/api/tickets/${id}`;
+};
+
+export const deleteTicket = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteTicketUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteTicketMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteTicket>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteTicket>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteTicket"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteTicket>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteTicket(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteTicketMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteTicket>>
+>;
+export type DeleteTicketMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Delete a single ticket
+ */
+export const useDeleteTicket = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteTicket>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteTicket>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteTicketMutationOptions(options));
+};
+
+/**
  * @summary Send a prompt and get an AI-streamed response (SSE)
  */
 export const getAiChatUrl = () => {
@@ -1659,6 +1742,89 @@ export function useListMessages<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Delete a single raw message
+ */
+export const getDeleteMessageUrl = (id: number) => {
+  return `/api/dashboard/messages/${id}`;
+};
+
+export const deleteMessage = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteMessageUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteMessageMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMessage>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteMessage>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteMessage"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteMessage>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteMessage(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteMessageMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteMessage>>
+>;
+export type DeleteMessageMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a single raw message
+ */
+export const useDeleteMessage = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMessage>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteMessage>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteMessageMutationOptions(options));
+};
 
 /**
  * @summary Get WhatsApp QR code for pairing

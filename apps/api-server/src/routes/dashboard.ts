@@ -4,6 +4,7 @@ import {
 } from "@workspace/api-zod";
 import { loadTickets, loadRawMessages } from "../lib/csv-loader";
 import { ticketController } from "../controllers/ticket.controller";
+import { messageRepository } from "../repositories/message.repository";
 
 const router: IRouter = Router();
 
@@ -49,6 +50,7 @@ router.get("/dashboard/recent-activity", ticketController.getRecentActivity);
 router.get("/tickets", ticketController.listTickets);
 router.get("/tickets/:id", ticketController.getTicket);
 router.patch("/tickets/:id/status", ticketController.updateStatus);
+router.delete("/tickets/:id", ticketController.deleteTicket);
 
 // Evolution status
 router.get("/dashboard/whatsapp-status", async (_req, res): Promise<void> => {
@@ -109,6 +111,16 @@ router.post("/dashboard/messages/classify", (_req, res): void => {
     }
   }
   res.json({ success: true });
+});
+
+router.delete("/dashboard/messages/:id", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  const success = await messageRepository.deleteMessage(id);
+  if (!success) {
+    res.status(404).json({ error: "Message not found or failed to delete" });
+    return;
+  }
+  res.status(204).send();
 });
 
 export default router;

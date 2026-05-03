@@ -6,8 +6,8 @@ from app.models import KnowledgeItem
 HYBRID_SEARCH_QUERY = """
 WITH vector_search AS (
     SELECT id, 
-           1 - (embedding <=> :embedding) AS rank_score,
-           ROW_NUMBER() OVER (ORDER BY embedding <=> :embedding) AS rank
+           1 - (embedding <=> :embedding::vector) AS rank_score,
+           ROW_NUMBER() OVER (ORDER BY embedding <=> :embedding::vector) AS rank
     FROM knowledge_items
     LIMIT 50
 ),

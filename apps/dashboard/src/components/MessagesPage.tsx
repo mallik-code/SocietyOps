@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { MessageSquare, RefreshCw, Wand2, Search } from "lucide-react";
-import { useListMessages, useClassifyMessages } from "@workspace/api-client-react";
+import { MessageSquare, RefreshCw, Wand2, Search, Trash2 } from "lucide-react";
+import { useListMessages, useClassifyMessages, useDeleteMessage } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface MessagesPageProps {
@@ -11,6 +11,7 @@ export function MessagesPage({ isDark }: MessagesPageProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: messages, isLoading } = useListMessages();
+  const deleteMessage = useDeleteMessage();
   
   const { mutate: classify, isPending: isClassifying } = useClassifyMessages({
     mutation: {
@@ -23,6 +24,19 @@ export function MessagesPage({ isDark }: MessagesPageProps) {
       }
     }
   });
+
+  const handleDeleteMessage = (id: number) => {
+    if (!confirm("Are you sure you want to delete this message?")) return;
+    deleteMessage.mutate({ id }, {
+      onSuccess: () => {
+        toast({ title: "Message deleted successfully" });
+        queryClient.invalidateQueries({ queryKey: ["/api/dashboard/messages"] });
+      },
+      onError: () => {
+        toast({ title: "Failed to delete message", variant: "destructive" });
+      }
+    });
+  };
 
   return (
     <div className="bg-background px-6 pt-8 pb-10 min-h-screen">
@@ -99,10 +113,20 @@ export function MessagesPage({ isDark }: MessagesPageProps) {
                       </span>
                     )}
                   </div>
-                  <button className="text-xs text-primary hover:underline font-medium flex items-center gap-1">
-                    <MessageSquare className="w-3 h-3" />
-                    View Thread
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => handleDeleteMessage(msg.id)}
+                      disabled={deleteMessage.isPending}
+                      className="p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                      title="Delete message"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                    <button className="text-xs text-primary hover:underline font-medium flex items-center gap-1">
+                      <MessageSquare className="w-3 h-3" />
+                      View Thread
+                    </button>
+                  </div>
                 </div>
               </div>
             ))
