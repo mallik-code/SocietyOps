@@ -3,7 +3,9 @@ from sqlalchemy import (
     Column, Integer, String, Text, DateTime, ForeignKey, Boolean, Enum as SAEnum
 )
 from sqlalchemy.orm import relationship
+from sqlalchemy.dialects.postgresql import JSONB
 import enum
+
 
 from app.database import Base
 

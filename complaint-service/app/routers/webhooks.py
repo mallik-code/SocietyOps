@@ -7,29 +7,17 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import MessageLog, Ticket, TicketStatus, TicketPriority
 from app.schemas import (
     IncomingMessage,
     WebhookResponse,
     ClassificationResponse,
     ClassifyRequest,
 )
-from app.services.ai_classifier import classify_complaint, ClassificationResult
-from app.services.policy_engine import (
-    evaluate_inbound,
-    evaluate_classification,
-    reply_allowed,
-)
-from app.services.response_generator import generate_whatsapp_reply, generate_ignored_reply
+from app.services.ai_classifier import classify_complaint
+from app.services.message_orchestrator import MessageOrchestrator
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/webhook", tags=["Webhook"])
-
-_PRIORITY_MAP = {
-    "High": TicketPriority.High,
-    "Medium": TicketPriority.Medium,
-    "Low": TicketPriority.Low,
-}
 
 
 @router.post(
@@ -41,109 +29,36 @@ _PRIORITY_MAP = {
 async def receive_message(payload: IncomingMessage, db: Session = Depends(get_db)):
     """
     Entry point for direct webhook calls.
-
-    1. Policy Phase 1 — inbound checks (group, sender, length, keywords).
-    2. Logs the raw message.
-    3. AI classification.
-    4. Policy Phase 2 — complaint + confidence checks.
-    5. Creates a ticket if policy allows.
-    6. Returns full classification + whatsapp_reply string.
+    Delegates orchestration to MessageOrchestrator.
     """
-    # ── Policy Phase 1 ────────────────────────────────────────────────────────
-    inbound = evaluate_inbound(
+    # ── Orchestration ─────────────────────────────────────────────────────────
+    orchestrator = MessageOrchestrator(db)
+    result = await orchestrator.process_message(
         message_text=payload.message_text,
-        group_id=None,
-        group_name=payload.group_name,
-        sender_id=payload.sender,
-    )
-    if not inbound.allow_processing:
-        return WebhookResponse(
-            ticket_id=None,
-            is_complaint=False,
-            classification=ClassificationResponse(
-                is_complaint=False, category="Other",
-                priority="Low", location=None, confidence=0.0,
-            ),
-            message=f"Blocked by policy — {inbound.reason}",
-            whatsapp_reply="",
-        )
-
-    # ── Log raw message ───────────────────────────────────────────────────────
-    db_log = MessageLog(
-        raw_message=payload.message_text,
-        sender=payload.sender,
-        group_name=payload.group_name,
-    )
-    db.add(db_log)
-    db.flush()
-
-    # ── AI classification ─────────────────────────────────────────────────────
-    try:
-        result = await classify_complaint(payload.message_text)
-    except Exception as exc:
-        logger.error("Classification error: %s", exc)
-        result = ClassificationResult(
-            is_complaint=True, category="Other",
-            priority="Medium", location=None, confidence=0.0,
-        )
-
-    # Update log with classification info
-    db_log.is_complaint = result.is_complaint
-    db_log.category = result.category
-    db_log.priority = result.priority
-    db_log.confidence = str(result.confidence)
-
-    classification = ClassificationResponse(
-        is_complaint=result.is_complaint,
-        category=result.category,
-        priority=result.priority,
-        location=result.location or payload.location,
-        confidence=result.confidence,
+        sender_jid=payload.sender,
+        sender_name=payload.reporter_name,
+        group_name=payload.group_name
     )
 
-    # ── Policy Phase 2 ────────────────────────────────────────────────────────
-    post = evaluate_classification(
-        is_complaint=result.is_complaint,
-        confidence=result.confidence,
-    )
-
-    ticket_id: int | None = None
-    whatsapp_reply: str
-
-    if post.allow_ticket:
-        priority = _PRIORITY_MAP.get(result.priority, TicketPriority.Medium)
-        ticket = Ticket(
-            message_text=payload.message_text,
-            category=result.category,
-            priority=priority,
-            location=result.location or payload.location,
-            status=TicketStatus.open,
-            reporter_name=payload.reporter_name,
-            group_name=payload.group_name,
-            confidence=result.confidence,
+    # ── Response formatting ───────────────────────────────────────────────────
+    classification_resp = None
+    if result.classification:
+        classification_resp = ClassificationResponse(
+            is_complaint=result.classification.is_complaint,
+            intent=result.classification.intent,
+            category=result.classification.category,
+            priority=result.classification.priority,
+            location=result.classification.location or payload.location,
+            issue_summary=result.classification.issue_summary,
+            confidence=result.classification.confidence,
         )
-        db.add(ticket)
-        db.commit()
-        db.refresh(ticket)
-        ticket_id = ticket.id
-        whatsapp_reply = generate_whatsapp_reply(ticket) if post.allow_reply else ""
-        logger.info(
-            "Ticket #%d created — category=%s priority=%s confidence=%.2f",
-            ticket_id, result.category, result.priority, result.confidence,
-        )
-        message = "Complaint received and ticket created"
-    else:
-        db.commit()
-        whatsapp_reply = generate_ignored_reply() if (result.is_complaint and post.allow_reply) else ""
-        message = f"Message not actioned — {post.reason}"
-        logger.info("Ticket skipped — %s — sender=%s", post.reason, payload.sender)
 
     return WebhookResponse(
-        ticket_id=ticket_id,
-        is_complaint=result.is_complaint,
-        classification=classification,
-        message=message,
-        whatsapp_reply=whatsapp_reply,
+        ticket_id=result.ticket_id or result.matched_ticket_id,
+        is_complaint=result.classification.is_complaint if result.classification else False,
+        classification=classification_resp,
+        message=result.reason,
+        whatsapp_reply=result.whatsapp_reply or "",
     )
 
 
@@ -159,4 +74,12 @@ async def classify_only(payload: ClassifyRequest):
     Useful for testing the AI classifier in isolation.
     """
     result = await classify_complaint(payload.message_text)
-    return ClassificationResponse(**result.to_dict())
+    return ClassificationResponse(
+        is_complaint=result.is_complaint,
+        intent=result.intent,
+        category=result.category,
+        priority=result.priority,
+        location=result.location,
+        issue_summary=result.issue_summary,
+        confidence=result.confidence,
+    )

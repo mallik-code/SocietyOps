@@ -1,16 +1,12 @@
-from sqlalchemy import create_engine, event
-from sqlalchemy.orm import sessionmaker, DeclarativeBase
+from sqlalchemy import event
 import os
+from societyops_dependencies.database.patterns import Base, create_standard_sync_engine
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./data/complaints.db")
 
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {},
-    echo=os.getenv("SQL_ECHO", "false").lower() == "true",
-)
+engine = create_standard_sync_engine(DATABASE_URL)
 
-
+# Keep the SQLite specific pragma logic
 @event.listens_for(engine, "connect")
 def set_sqlite_pragma(dbapi_connection, connection_record):
     if DATABASE_URL.startswith("sqlite"):
@@ -19,12 +15,8 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
         cursor.execute("PRAGMA journal_mode=WAL")
         cursor.close()
 
-
+from sqlalchemy.orm import sessionmaker
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-
-class Base(DeclarativeBase):
-    pass
 
 
 def get_db():

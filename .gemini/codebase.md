@@ -78,61 +78,66 @@ Routers in: `complaint-service/app/routers/`
 
 ### WhatsApp Webhook — `routers/evolution.py`
 
-| Method | Path | Line | Notes |
-|--------|------|------|-------|
-| POST | `/evolution/events` | 129 | Main inbound message handler — deduplicates by `message_id` |
-| GET | `/evolution/status` | 310 | Evolution API instance status |
-| GET | `/evolution/qr` | 325 | QR code for WhatsApp linking |
-| GET | `/evolution/config` | 339 | Active Evolution configuration |
+| Method | Path | Notes |
+|--------|------|-------|
+| POST | `/evolution/events` | **Controller**: Delegates to `MessageOrchestrator`. |
+| GET | `/evolution/status` | Evolution API instance status |
+| GET | `/evolution/qr` | QR code for WhatsApp linking |
+| GET | `/evolution/config` | Active Evolution configuration |
 
 ### OpenClaw Webhook — `routers/openclaw.py`
 
-| Method | Path | Line | Notes |
-|--------|------|------|-------|
-| POST | `/openclaw/events` | 100 | Alternative WhatsApp provider webhook |
-| GET | `/openclaw/config` | 243 | OpenClaw + policy configuration |
+| Method | Path | Notes |
+|--------|------|-------|
+| POST | `/openclaw/events` | **Controller**: Delegates to `MessageOrchestrator`. |
 
 ### Policy Engine — `routers/policy.py`
 
-| Method | Path | Line | Notes |
-|--------|------|------|-------|
-| GET | `/policy/` | 13 | Active policy configuration |
-| POST | `/policy/simulate` | 46 | Dry-run policy decision (no side effects) |
+| Method | Path | Notes |
+|--------|------|-------|
+| GET | `/policy/` | Active policy configuration |
+| POST | `/policy/simulate` | Dry-run policy decision (no side effects) |
 
 ### Daily Reports — `routers/reports.py`
 
-| Method | Path | Line | Notes |
-|--------|------|------|-------|
-| GET | `/reports/daily` | 20 | Daily report as JSON |
-| GET | `/reports/daily/text` | 36 | Daily report as WhatsApp text |
-| POST | `/reports/daily/send` | 60 | Trigger & send report now |
-| GET | `/reports/scheduler/status` | 94 | Scheduler status & next run time |
+| Method | Path | Notes |
+|--------|------|-------|
+| GET | `/reports/daily` | Daily report as JSON |
+| GET | `/reports/daily/text` | Daily report as WhatsApp text |
+| POST | `/reports/daily/send` | Trigger & send report now |
+| GET | `/reports/scheduler/status` | Scheduler status & next run time |
 
 ### Supervisor — `routers/supervisor.py`
 
-| Method | Path | Line | Notes |
-|--------|------|------|-------|
-| POST | `/supervisor/reply` | 35 | Free-text supervisor command (parsed by `supervisor_parser.py`) |
-| POST | `/supervisor/actions` | 66 | Log a supervisor action on a ticket |
-| GET | `/supervisor/actions` | 90 | List all supervisor actions |
-| GET | `/supervisor/actions/ticket/{ticket_id}` | 99 | Actions for a specific ticket |
+| Method | Path | Notes |
+|--------|------|-------|
+| POST | `/supervisor/reply` | Free-text supervisor command (parsed by `supervisor_parser.py`) |
+| POST | `/supervisor/actions` | Log a supervisor action on a ticket |
+| GET | `/supervisor/actions` | List all supervisor actions |
+| GET | `/supervisor/actions/ticket/{ticket_id}` | Actions for a specific ticket |
 
 ### Tickets — `routers/tickets.py`
 
-| Method | Path | Line | Notes |
-|--------|------|------|-------|
-| GET | `/tickets` | 15 | List tickets (supports filters) |
-| POST | `/tickets` | 37 | Create ticket manually |
-| GET | `/tickets/{ticket_id}` | 46 | Get ticket by ID |
-| PATCH | `/tickets/{ticket_id}` | 54 | Update ticket fields |
-| DELETE | `/tickets/{ticket_id}` | 67 | Delete ticket |
+| Method | Path | Notes |
+|--------|------|-------|
+| GET | `/tickets` | List tickets (supports filters) |
+| POST | `/tickets` | Create ticket manually |
+| GET | `/tickets/{ticket_id}` | Get ticket by ID |
+| PATCH | `/tickets/{ticket_id}` | Update ticket fields |
+| DELETE | `/tickets/{ticket_id}` | Delete ticket |
 
 ### Direct Webhook — `routers/webhooks.py`
 
-| Method | Path | Line | Notes |
-|--------|------|------|-------|
-| POST | `/webhook/message` | 35 | Receive WhatsApp message directly |
-| POST | `/webhook/classify` | 142 | Classify without creating ticket |
+| Method | Path | Notes |
+|--------|------|-------|
+| POST | `/webhook/message` | **Controller**: Delegates to `MessageOrchestrator`. |
+| POST | `/webhook/classify` | Standalone classification. |
+
+### Data Access & Logic — `repositories/` & `services/`
+
+- `repositories/ticket_repository.py`: **Repository**: Centralized CRUD for Tickets and SupervisorActions.
+- `services/message_orchestrator.py`: **Service**: Coordinates the end-to-end message processing flow.
+- `services/resolution_matcher.py`: **Service**: Semantic matching for resolving tickets.
 
 ---
 

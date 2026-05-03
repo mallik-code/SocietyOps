@@ -34,10 +34,14 @@ SocietyOps/
 
 | Layer | Responsibility | Rule |
 |-------|---------------|------|
-| `routers/` | HTTP binding, input validation, serialization | Never contain business logic |
-| `services/` | Business logic, AI calls, external HTTP | Never import from `routers/` |
-| `models.py` | ORM schema only | No logic, no imports from services |
-| `schemas.py` | Wire-format contracts | Pure Pydantic, no ORM imports |
+| `routers/` | **Controller**: HTTP binding, request validation | Never contain business logic; delegate to Service |
+| `services/` | **Service/Orchestrator**: Business logic, AI, flow coordination | Never import from `routers/` |
+| `repositories/`| **Repository**: Database access, CRUD operations | Only layer that imports `models.py` |
+| `models.py` | SQLAlchemy ORM models | Pure schema definitions |
+| `schemas.py` | Pydantic data contracts | Pure wire-format definitions |
+
+**Core Pattern: MessageOrchestrator**
+All incoming messages must be processed via the `MessageOrchestrator` service to ensure consistent policy enforcement, classification, and action.
 
 **Violation example to avoid:** calling `evolution_client.send_message()` directly inside a router — put it in a service.
 
@@ -314,6 +318,9 @@ Full list: see `.env.example`.
 - Do not hand-edit `lib/api-client-react/` or `lib/api-zod/` — they are generated.
 - Do not share the SQLite volume (`sqlite_data`) with api-server; they use separate databases.
 - Do not duplicate table definitions across `lib/db` and `complaint-service/app/models.py` — they own different databases.
-- Do not use `POSTGRES_*` env vars in the FastAPI service; it uses SQLite only.
-- Do not hard-code `localhost` URLs in Docker service configuration — use container names.
-- Do not store session state in the FastAPI process — use the DB; the service may restart.
+---
+
+## Troubleshooting
+
+For solutions to common issues, refer to:
+👉 [docs/troubleshooting.md](docs/troubleshooting.md)

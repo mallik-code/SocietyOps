@@ -3,7 +3,7 @@ name: societyops
 version: "3.9"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# WhatsApp Complaint Management System — Docker Compose
+# WhatsApp complaint Management System — Docker Compose
 #
 # Services:
 #   evolution   Self-hosted WhatsApp gateway (Evolution API v2)
@@ -24,6 +24,7 @@ version: "3.9"
 
 networks:
   complaint_net:
+    name: complaint_net
     driver: bridge
 
 volumes:
@@ -39,7 +40,7 @@ services:
 
   # ── PostgreSQL — shared by Evolution API and api-server ──────────────────
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     container_name: complaint_postgres
     restart: unless-stopped
     networks:
@@ -110,7 +111,7 @@ services:
       WEBHOOK_EVENTS_NEW_JWT_TOKEN: "false"
 
       # ── Session / device ──────────────────────────────────────────────────
-      CONFIG_SESSION_PHONE_CLIENT: ComplaintBot
+      CONFIG_SESSION_PHONE_CLIENT: complaintBot
       CONFIG_SESSION_PHONE_NAME: Chrome
 
       # ── Storage ───────────────────────────────────────────────────────────
@@ -144,7 +145,7 @@ services:
   api-server:
     build:
       context: .
-      dockerfile: artifacts/api-server/Dockerfile
+      dockerfile: apps/api-server/Dockerfile
     container_name: complaint_api_server
     restart: unless-stopped
     depends_on:
@@ -156,7 +157,7 @@ services:
       - complaint_net
     environment:
       PORT: "3001"
-      DATABASE_URL: postgresql://evolution:${EVOLUTION_DB_PASSWORD:-evolution_pass}@postgres:5432/societyops
+      DATABASE_URL: postgresql://evolution:${EVOLUTION_DB_PASSWORD:-evolution_pass}@postgres:5432/complaint
       AI_INTEGRATIONS_OPENAI_BASE_URL: ${AI_INTEGRATIONS_OPENAI_BASE_URL:-https://api.openai.com/v1}
       AI_INTEGRATIONS_OPENAI_API_KEY: ${AI_INTEGRATIONS_OPENAI_API_KEY}
       EVOLUTION_API_URL: http://evolution:8080
@@ -175,7 +176,7 @@ services:
   dashboard:
     build:
       context: .
-      dockerfile: artifacts/dashboard/Dockerfile
+      dockerfile: apps/dashboard/Dockerfile
     container_name: complaint_dashboard
     restart: unless-stopped
     depends_on:
@@ -190,8 +191,8 @@ services:
   # ── FastAPI backend ───────────────────────────────────────────────────────
   api:
     build:
-      context: complaint-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: complaint-service/Dockerfile
     container_name: complaint_api
     restart: unless-stopped
     depends_on:
@@ -228,14 +229,46 @@ services:
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       GROQ_MODEL: ${GROQ_MODEL:-llama-3.1-8b-instant}
 
+      # Knowledge Engine Integration
+      KNOWLEDGE_SERVICE_URL: ${KNOWLEDGE_SERVICE_URL:-http://knowledge-service:8000}
+
       # Daily report scheduler
       REPORT_GROUP_ID: ${REPORT_GROUP_ID:-}
       REPORT_CRON_HOUR: ${REPORT_CRON_HOUR:-20}
       REPORT_CRON_MINUTE: ${REPORT_CRON_MINUTE:-0}
       REPORT_TIMEZONE: ${REPORT_TIMEZONE:-Asia/Karachi}
     healthcheck:
-      test: ["CMD", "python", "-c",
-             "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+
+  # ── Knowledge Engine Service — Python/FastAPI ─────────────────────────────
+  knowledge-service:
+    build:
+      context: .
+      dockerfile: knowledge-service/Dockerfile
+    container_name: complaint_knowledge
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - complaint_net
+    environment:
+      DATABASE_URL: ${KNOWLEDGE_DATABASE_URL:-postgresql+asyncpg://evolution:evolution_pass@postgres:5432/knowledge}
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-gemini}
+      # Single API key regardless of provider (Gemini key or OpenAI-compatible key)
+      EMBEDDING_API_KEY: ${EMBEDDING_API_KEY}
+      # Override these when switching providers; defaults match the EMBEDDING_PROVIDER default (gemini)
+      EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-https://generativelanguage.googleapis.com/v1beta}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-models/text-embedding-004}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      SQL_ECHO: ${SQL_ECHO:-false}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 30s
       timeout: 5s
       retries: 3

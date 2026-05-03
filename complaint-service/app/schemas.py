@@ -3,6 +3,7 @@ from typing import Optional, List
 from pydantic import BaseModel, Field
 
 from app.models import TicketStatus, TicketPriority, SupervisorActionType
+import enum
 
 
 # ─── Incoming webhook payload ──────────────────────────────────────────────────
@@ -19,9 +20,11 @@ class IncomingMessage(BaseModel):
 
 class ClassificationResponse(BaseModel):
     is_complaint: bool = Field(..., description="True if the message is a genuine complaint")
+    intent: str = Field("NEW_COMPLAINT", description="NEW_COMPLAINT | ISSUE_RESOLUTION | OTHER")
     category: str = Field(..., description="Lift | Garbage | Cleaning | Water | Electrical | Security | Other")
     priority: str = Field(..., description="High | Medium | Low")
     location: Optional[str] = Field(None, description="Location extracted from the message text")
+    issue_summary: Optional[str] = Field(None, description="Extracted issue summary for resolutions")
     confidence: float = Field(..., ge=0.0, le=1.0, description="Classifier confidence score (0–1)")
 
 
@@ -115,3 +118,34 @@ class DailyReport(BaseModel):
     by_category: List[CategorySummary]
     by_priority: List[CategorySummary]
     avg_resolution_time_hours: Optional[float]
+
+
+# ─── Knowledge schemas ─────────────────────────────────────────────────────────
+
+class KnowledgeCategory(str, enum.Enum):
+    PROCEDURE = "procedure"
+    CONTACT = "contact"
+    POLICY = "policy"
+    GENERAL = "general"
+
+
+class KnowledgeCreate(BaseModel):
+    content: str
+    category: KnowledgeCategory = KnowledgeCategory.GENERAL
+    source_group: Optional[str] = None
+    metadata: Optional[dict] = None
+
+
+class KnowledgeResponse(BaseModel):
+    id: int
+    content: str
+    category: KnowledgeCategory
+    source_group: Optional[str]
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class KnowledgeSearchQuery(BaseModel):
+    query: str
+    limit: int = 5

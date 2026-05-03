@@ -29,7 +29,7 @@ See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and pa
 
 ---
 
-## Dashboard (`artifacts/dashboard`)
+## Dashboard (`apps/dashboard`)
 
 React + Vite SPA at `/dashboard/`. Four pages:
 
@@ -42,7 +42,7 @@ React + Vite SPA at `/dashboard/`. Four pages:
 
 ---
 
-## API Server (`artifacts/api-server`)
+## API Server (`apps/api-server`)
 
 Express 5 server at `/api/`. Routes:
 

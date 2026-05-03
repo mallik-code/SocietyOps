@@ -1,4 +1,4 @@
-# SocietyOps
+# ComplaintOps
 
 AI-powered complaint management platform for residential societies. Residents submit complaints
 via WhatsApp groups; the system classifies them with a GROQ LLaMA 3 AI model, creates tickets
@@ -9,7 +9,7 @@ automatically, sends a confirmation reply, and surfaces everything on a web dash
 ## What This Project Does
 
 Residential societies typically manage complaints (water leaks, power cuts, broken lifts, security
-incidents) through unstructured WhatsApp chat groups. SocietyOps turns those messages into a
+incidents) through unstructured WhatsApp chat groups. ComplaintOps turns those messages into a
 structured, trackable ticket system — with zero friction for residents.
 
 **Core capabilities:**
@@ -43,7 +43,7 @@ structured, trackable ticket system — with zero friction for residents.
 | Scheduler | APScheduler 3.10 (daily reports) |
 | Container | Python 3.12-slim (multi-stage) |
 
-### artifacts/api-server (Node.js)
+### apps/api-server (Node.js)
 
 | Component | Technology |
 |-----------|-----------|
@@ -54,7 +54,7 @@ structured, trackable ticket system — with zero friction for residents.
 | Build | esbuild |
 | Container | Node 22-slim (multi-stage) |
 
-### artifacts/dashboard (React)
+### apps/dashboard (React)
 
 | Component | Technology |
 |-----------|-----------|
@@ -173,7 +173,7 @@ This is the fastest path to a running system.
 
 ```bash
 git clone <repo-url>
-cd SocietyOps
+cd ComplaintOps
 cp .env.example .env
 ```
 
@@ -269,7 +269,7 @@ API docs available at **http://localhost:8000/docs**
 # from repo root — install all workspace deps first
 pnpm install
 
-cd artifacts/api-server
+cd apps/api-server
 pnpm dev
 ```
 
@@ -278,7 +278,7 @@ Runs on **http://localhost:3001**
 ### dashboard (React + Vite)
 
 ```bash
-cd artifacts/dashboard
+cd apps/dashboard
 pnpm dev
 ```
 
@@ -353,45 +353,17 @@ See [.env.example](.env.example) for the full documented list.
 ## Project Structure
 
 ```
-SocietyOps/
+ComplaintOps/
 ├── complaint-service/          Python FastAPI — core complaint engine
 │   ├── app/
 │   │   ├── main.py             Entry point, lifespan hooks
 │   │   ├── models.py           SQLAlchemy ORM models
 │   │   ├── schemas.py          Pydantic request/response schemas
-│   │   ├── routers/            Route handlers (evolution, tickets, supervisor, reports, policy)
-│   │   └── services/           Business logic (classifier, policy engine, scheduler, report generator)
-│   ├── Dockerfile
-│   └── requirements.txt
-│
-├── artifacts/
-│   ├── api-server/             Node.js Express — dashboard API
-│   │   ├── src/routes/         health, dashboard, policies, connect, ai
-│   │   └── Dockerfile
-│   └── dashboard/              React 19 SPA
-│       ├── src/components/     Dashboard, PoliciesPage, ConnectPage, PromptPage
-│       ├── src/components/ui/  shadcn/ui + Radix UI components
-│       └── Dockerfile
-│
-├── lib/
-│   ├── db/                     Drizzle ORM schema (PostgreSQL, used by api-server)
-│   ├── api-spec/               OpenAPI spec + Orval codegen config
-│   ├── api-client-react/       Generated React Query hooks — DO NOT hand-edit
-│   ├── api-zod/                Generated Zod schemas — DO NOT hand-edit
-│   ├── integrations-openai-ai-server/
-│   └── integrations-openai-ai-react/
-│
-├── docker-compose.yml          Full-stack orchestration (5 services)
-├── .env.example                All environment variables documented
-├── pnpm-workspace.yaml         Monorepo config
-└── .claude/CLAUDE.md           Claude Code guidelines and architecture rules
-```
-
----
-
+�
 ## Troubleshooting
 
-**Evolution API not starting**
+For solutions to common issues (Evolution API, QR codes, message ingestion, etc.), please refer to:
+👉 [Troubleshooting Guide](docs/troubleshooting.md)
 The evolution service depends on Postgres being healthy. Check `docker compose logs postgres`.
 If the volume is corrupt: `docker compose down -v && docker compose up --build`.
 

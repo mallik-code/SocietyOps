@@ -1,0 +1,22 @@
+[project]
+name = "societyops-dependencies"
+version = "$SOCIETYOPS_DEPENDENCIES_PACKAGE_VERSION"
+description = "A collection of shared dependencies for SocietyOps microservices."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi[standard]==0.115.5",
+    "pydantic-settings==2.6.1",
+    "SQLAlchemy==2.0.36",
+    "asyncpg==0.30.0",
+    "pgvector==0.3.6",
+    "httpx==0.28.1",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["societyops_dependencies*"]

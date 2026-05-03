@@ -3,66 +3,22 @@ Evolution API webhook handler.
 
 Evolution API calls POST /evolution/events for every WhatsApp event it
 receives on the linked instance.
-
-Supported event: messages.upsert
-All other events (connection updates, read receipts, etc.) are acknowledged
-with status="ignored" so Evolution API does not retry them.
-
-Evolution API v2 payload shape (group message):
-{
-  "event": "messages.upsert",
-  "instance": "complaint-bot",
-  "data": {
-    "key": {
-      "remoteJid": "120363000000000001@g.us",   <- group JID
-      "fromMe": false,
-      "id": "3EB0ABC123XYZ",
-      "participant": "923001234567@s.whatsapp.net"  <- actual sender (groups only)
-    },
-    "pushName": "Ahmed Ali",
-    "messageType": "conversation",
-    "message": {
-      "conversation": "The lift on 3rd floor is broken urgently"
-      // or: "extendedTextMessage": {"text": "..."}
-    },
-    "messageTimestamp": 1705312345
-  }
-}
-
-Direct message (no group):
-  remoteJid = "923001234567@s.whatsapp.net"
-  participant is absent / null
 """
 import logging
-from typing import Any, Dict, Optional
+from typing import Optional
 
 from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import MessageLog, Ticket, TicketStatus, TicketPriority
 from app.schemas import ClassificationResponse
-from app.services.ai_classifier import classify_complaint, ClassificationResult
 from app.services.evolution_client import get_evolution_client
-from app.services.policy_engine import (
-    evaluate_inbound,
-    evaluate_classification,
-    get_policy_config,
-    get_min_confidence,
-)
-from app.services.response_generator import generate_whatsapp_reply, generate_ignored_reply
-from app.services.supervisor_parser import is_supervisor_command, process_supervisor_reply
+from app.services.message_orchestrator import MessageOrchestrator
+from app.services.policy_engine import get_policy_config
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/evolution", tags=["Evolution API"])
-
-_PRIORITY_MAP = {
-    "high":     TicketPriority.High,
-    "medium":   TicketPriority.Medium,
-    "low":      TicketPriority.Low,
-    "critical": TicketPriority.Critical,
-}
 
 
 # ─── Pydantic models for Evolution API v2 payload ─────────────────────────────
@@ -102,6 +58,7 @@ class EvolutionEventResponse(BaseModel):
     reason:            Optional[str]  = None
     policy_violations: list[str]      = []
     ticket_id:         Optional[int]  = None
+    matched_ticket_id: Optional[int]  = None
     is_complaint:      Optional[bool] = None
     classification:    Optional[ClassificationResponse] = None
     whatsapp_reply:    Optional[str]  = None
@@ -139,20 +96,8 @@ async def handle_evolution_event(
 ):
     """
     Main Evolution API webhook endpoint.
-
-    Flow:
-      1.  Only handle messages.upsert — ignore everything else.
-      2.  Skip messages sent by the bot itself (fromMe=true).
-      3.  Extract text, sender JID, group JID, and display name.
-      4.  Policy Engine Phase 1 — inbound checks.
-      5.  Log raw message to DB.
-      6.  Supervisor command detection.
-      7.  AI classification.
-      8.  Policy Engine Phase 2 — post-classification checks.
-      9.  Conditionally create ticket.
-      10. Conditionally send WhatsApp reply via Evolution API.
+    Delegates orchestration to MessageOrchestrator.
     """
-
     # ── 1. Event type gate ────────────────────────────────────────────────────
     event_type = event.event
     if event_type != "messages.upsert" and event_type != "MESSAGES_UPSERT":
@@ -180,130 +125,43 @@ async def handle_evolution_event(
 
     # For group messages: reply to the group. For DMs: reply to the sender.
     group_jid  = remote_jid if _is_group(remote_jid) else None
-    group_name = None   # Evolution API doesn't include group name in the event;
-                        # we use the JID as the identifier
-
     reply_to = group_jid or sender_jid  # where to send the reply
 
-    # ── 4. Policy Phase 1 ─────────────────────────────────────────────────────
-    inbound = evaluate_inbound(
+    # ── Orchestration ─────────────────────────────────────────────────────────
+    orchestrator = MessageOrchestrator(db)
+    result = await orchestrator.process_message(
         message_text=message_text,
-        group_id=group_jid,
-        group_name=group_name,
-        sender_id=sender_jid,
-    )
-    if not inbound.allow_processing:
-        logger.info(
-            "Evolution: message blocked [%s] from %s — %s",
-            inbound.blocked_by, sender_jid, inbound.reason,
-        )
-        return EvolutionEventResponse(
-            status="blocked",
-            reason=inbound.reason,
-            policy_violations=inbound.violations,
-        )
-
-    logger.info(
-        "Evolution: processing message from %s (group=%s)",
-        sender_jid, group_jid or "DM",
+        sender_jid=sender_jid,
+        sender_name=sender_name,
+        group_jid=group_jid,
     )
 
-    # ── 5. Log raw message ────────────────────────────────────────────────────
-    db.add(MessageLog(
-        raw_message=message_text,
-        sender=sender_jid,
-        group_name=group_jid or sender_jid,
-    ))
-    db.flush()
-
-    # ── 6. Supervisor command ─────────────────────────────────────────────────
-    if is_supervisor_command(message_text):
-        logger.info("Evolution: supervisor command from %s", sender_jid)
-        sv = process_supervisor_reply(message_text, db)
-        reply_sent = False
-        if inbound.allow_reply:
-            reply_sent = await get_evolution_client().send_message(reply_to, sv.confirmation)
-        return EvolutionEventResponse(
-            status="supervisor_action",
-            ticket_id=sv.ticket_id,
-            whatsapp_reply=sv.confirmation,
-            reply_sent=reply_sent,
-            reason=f"action={sv.action.value if sv.action else None} success={sv.success}",
-            policy_violations=inbound.violations,
-        )
-
-    # ── 7. AI classification ──────────────────────────────────────────────────
-    try:
-        result: ClassificationResult = await classify_complaint(message_text)
-    except Exception as exc:
-        logger.error("Classification error: %s", exc)
-        result = ClassificationResult(
-            is_complaint=True, category="Other",
-            priority="Medium", location=None, confidence=0.0,
-        )
-
-    classification = ClassificationResponse(
-        is_complaint=result.is_complaint,
-        category=result.category,
-        priority=result.priority,
-        location=result.location,
-        confidence=result.confidence,
-    )
-
-    # ── 8. Policy Phase 2 ─────────────────────────────────────────────────────
-    post = evaluate_classification(
-        is_complaint=result.is_complaint,
-        confidence=result.confidence,
-        group_id=group_jid,
-    )
-    all_violations = inbound.violations + post.violations
-
-    # ── 9. Ticket creation ────────────────────────────────────────────────────
-    ticket_id: Optional[int] = None
-    whatsapp_reply: str = ""
-
-    if post.allow_ticket:
-        priority_key = result.priority.lower() if result.priority else "medium"
-        priority = _PRIORITY_MAP.get(priority_key, TicketPriority.Medium)
-        ticket = Ticket(
-            message_text=message_text,
-            category=result.category,
-            priority=priority,
-            location=result.location,
-            status=TicketStatus.open,
-            reporter_name=sender_name,
-            group_name=group_jid or sender_jid,
-        )
-        db.add(ticket)
-        db.commit()
-        db.refresh(ticket)
-        ticket_id = ticket.id
-        whatsapp_reply = generate_whatsapp_reply(ticket)
-        logger.info(
-            "Ticket #%d created — category=%s priority=%s confidence=%.2f",
-            ticket_id, result.category, result.priority, result.confidence,
-        )
-    else:
-        db.commit()
-        if result.is_complaint:
-            whatsapp_reply = generate_ignored_reply()
-        logger.info("Ticket skipped — %s", post.reason)
-
-    # ── 10. Send reply ────────────────────────────────────────────────────────
+    # ── Response formatting ───────────────────────────────────────────────────
     reply_sent = False
-    if post.allow_reply and whatsapp_reply:
-        reply_sent = await get_evolution_client().send_message(reply_to, whatsapp_reply)
-    elif not post.allow_reply:
-        logger.info("Reply suppressed — %s", post.reason)
+    if result.whatsapp_reply:
+        reply_sent = await get_evolution_client().send_message(reply_to, result.whatsapp_reply)
+
+    classification_resp = None
+    if result.classification:
+        classification_resp = ClassificationResponse(
+            is_complaint=result.classification.is_complaint,
+            intent=result.classification.intent,
+            category=result.classification.category,
+            priority=result.classification.priority,
+            location=result.classification.location,
+            issue_summary=result.classification.issue_summary,
+            confidence=result.classification.confidence,
+        )
 
     return EvolutionEventResponse(
-        status="processed",
-        reason=post.reason,
-        policy_violations=all_violations,
-        ticket_id=ticket_id,
-        is_complaint=result.is_complaint,
-        classification=classification,
-        whatsapp_reply=whatsapp_reply or None,
+        status=result.status,
+        reason=result.reason,
+        policy_violations=result.violations,
+        ticket_id=result.ticket_id,
+        matched_ticket_id=result.matched_ticket_id,
+        is_complaint=result.classification.is_complaint if result.classification else None,
+        classification=classification_resp,
+        whatsapp_reply=result.whatsapp_reply,
         reply_sent=reply_sent,
     )
 

@@ -1,6 +1,6 @@
 # SocietyOps — Structural Refactor Findings
 
-> Scope: root, `complaint-service/`, `artifacts/api-server/`, `artifacts/dashboard/`.  
+> Scope: root, `complaint-service/`, `apps/api-server/`, `apps/dashboard/`.  
 > `lib/` excluded from this review.  
 > Severity: **P1** = blocks production hardening | **P2** = enterprise hygiene | **P3** = polish
 
@@ -48,8 +48,8 @@
 | Service | Missing |
 |---------|---------|
 | `complaint-service/` | `tests/` folder, `pytest`, `conftest.py` |
-| `artifacts/api-server/` | `src/__tests__/`, Jest or Vitest config |
-| `artifacts/dashboard/` | `src/__tests__/`, Vitest + Testing Library setup |
+| `apps/api-server/` | `src/__tests__/`, Jest or Vitest config |
+| `apps/dashboard/` | `src/__tests__/`, Vitest + Testing Library setup |
 
 **Required additions per service:**
 
@@ -65,14 +65,14 @@ complaint-service/
       test_tickets_api.py
     conftest.py        # shared fixtures, in-memory SQLite setup
 
-artifacts/api-server/
+apps/api-server/
   src/
     __tests__/
       routes/
         health.test.ts
         dashboard.test.ts
 
-artifacts/dashboard/
+apps/dashboard/
   src/
     __tests__/
       components/
@@ -95,7 +95,7 @@ complaint-service/
     alembic.ini
 ```
 
-**artifacts/api-server (Node / PostgreSQL / Drizzle):**  
+**apps/api-server (Node / PostgreSQL / Drizzle):**  
 `lib/db/drizzle.config.ts` exists but there is no `drizzle/migrations/` directory, meaning `drizzle-kit migrate` has never been run. Schema changes are not versioned.
 
 **Required:**
@@ -115,7 +115,7 @@ Enterprise monorepos use predictable, well-understood names. Current layout devi
 
 | Current | Standard | Reason |
 |---------|----------|--------|
-| `artifacts/` | `apps/` | "artifacts" implies build output, not source applications |
+| `apps/` | `apps/` | "artifacts" implies build output, not source applications |
 | `complaint-service/` at root | `services/complaint/` | Services belong inside a `services/` grouping |
 | `scripts/` | `scripts/` ✅ | Fine, but see issue #5 |
 
@@ -123,8 +123,8 @@ Enterprise monorepos use predictable, well-understood names. Current layout devi
 ```
 SocietyOps/
   apps/
-    dashboard/         # React SPA (moved from artifacts/dashboard)
-    api-server/        # Express API (moved from artifacts/api-server)
+    dashboard/         # React SPA (moved from apps/dashboard)
+    api-server/        # Express API (moved from apps/api-server)
   services/
     complaint/         # Python FastAPI (moved from complaint-service/)
   lib/                 # shared packages (unchanged)
@@ -133,7 +133,7 @@ SocietyOps/
   .github/
 ```
 
-> Migration can be done incrementally — rename `artifacts/` → `apps/` first since it only affects Docker build context paths in `docker-compose.yml`.
+> Migration can be done incrementally — rename `apps/` → `apps/` first since it only affects Docker build context paths in `docker-compose.yml`.
 
 ---
 
@@ -169,8 +169,8 @@ scripts/
 
 ### 6. `mockup-sandbox` in Production Artifacts
 
-`artifacts/mockup-sandbox/` is a Vite component preview sandbox. It:
-- Duplicates 70+ UI components from `artifacts/dashboard/src/components/ui/`
+`apps/mockup-sandbox/` is a Vite component preview sandbox. It:
+- Duplicates 70+ UI components from `apps/dashboard/src/components/ui/`
 - Has a generated `.generated/mockup-components.ts` file checked into source control
 - Is never referenced by docker-compose or any deployment
 
@@ -200,7 +200,7 @@ async def global_exception_handler(request, exc):
     return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 ```
 
-**artifacts/api-server:** Express has no error-handling middleware (the `middlewares/` folder is empty). Unhandled errors propagate to Express's default handler which may leak stack traces.
+**apps/api-server:** Express has no error-handling middleware (the `middlewares/` folder is empty). Unhandled errors propagate to Express's default handler which may leak stack traces.
 
 **Required addition in `src/app.ts`:**
 ```typescript
@@ -286,7 +286,7 @@ complaint-service/app/
 All TypeScript types are either inline in route files or absent. A `src/types/` directory makes contracts explicit and discoverable.
 
 ```
-artifacts/api-server/src/
+apps/api-server/src/
   types/
     dashboard.ts
     policies.ts
@@ -297,7 +297,7 @@ artifacts/api-server/src/
 
 ### 15. React `pages/` vs `components/` Confusion
 
-`artifacts/dashboard/src/pages/` contains only `not-found.tsx` while actual pages (`Dashboard.tsx`, `PoliciesPage.tsx`, `ConnectPage.tsx`, `PromptPage.tsx`) live in `components/`. Pages and reusable components should be separated:
+`apps/dashboard/src/pages/` contains only `not-found.tsx` while actual pages (`Dashboard.tsx`, `PoliciesPage.tsx`, `ConnectPage.tsx`, `PromptPage.tsx`) live in `components/`. Pages and reusable components should be separated:
 
 ```
 src/
@@ -324,7 +324,7 @@ P1 — Do before any production exposure
   [ ] Run drizzle-kit generate / migrate in lib/db and commit migrations
 
 P2 — Do in next sprint
-  [ ] Rename artifacts/ → apps/ (update docker-compose build contexts)
+  [ ] Rename apps/ → apps/ (update docker-compose build contexts)
   [ ] Move complaint-service/ → services/complaint/ (update docker-compose context)
   [ ] Delete openclaw.py and openclaw_client.py
   [ ] Add global exception handlers (FastAPI + Express)
