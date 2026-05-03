@@ -6,6 +6,7 @@ import connectRouter from "./connect";
 import aiRouter from "./ai";
 import adminRouter from "./admin";
 import webhookRouter from "./webhook";
+import knowledgeRouter from "./knowledge";
 
 const router: IRouter = Router();
 
@@ -16,5 +17,6 @@ router.use(connectRouter);
 router.use(aiRouter);
 router.use(adminRouter);
 router.use(webhookRouter);
+router.use("/knowledge", knowledgeRouter);
 
 export default router;

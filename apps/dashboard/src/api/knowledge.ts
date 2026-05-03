@@ -6,20 +6,37 @@ export interface Category {
   lastUpdated: string; // ISO timestamp
 }
 
+// All calls go through the api-server which runs on /api (proxied via Vite or nginx)
+const API_BASE = "/api/knowledge";
+
 export async function fetchCategories(search = ""): Promise<Category[]> {
   const qs = search ? `?q=${encodeURIComponent(search)}` : "";
-  // Note: Using the base URL from environment if available, or defaulting to a relative path
-  const baseUrl = (import.meta as any).env?.VITE_KNOWLEDGE_SERVICE_URL || "";
-  const resp = await fetch(`${baseUrl}/categories${qs}`);
+  const resp = await fetch(`${API_BASE}/categories${qs}`);
   if (!resp.ok) {
-    // Return dummy data if the service is not yet fully integrated or for preview
-    console.warn("Knowledge service not reachable, returning placeholder data.");
-    return [
-      { id: "1", name: "Maintenance", description: "Standard operating procedures for plumbing, electrical, and HVAC.", topicCount: 12, lastUpdated: new Date().toISOString() },
-      { id: "2", name: "Security", description: "Visitor protocols, emergency contacts, and gate management.", topicCount: 8, lastUpdated: new Date().toISOString() },
-      { id: "3", name: "Billing", description: "Maintenance fee structures, late payment policies, and audit trails.", topicCount: 5, lastUpdated: new Date().toISOString() },
-      { id: "4", name: "Community Rules", description: "Guidelines for common areas, noise levels, and pet policies.", topicCount: 15, lastUpdated: new Date().toISOString() },
-    ];
+    console.error("Failed to fetch categories from knowledge service.");
+    return [];
+  }
+  return resp.json();
+}
+
+export async function createCategory(data: { name: string; description: string }): Promise<Category> {
+  const resp = await fetch(`${API_BASE}/categories`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data)
+  });
+  
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(`Failed to create category: ${resp.status} ${text}`);
+  }
+  
+  return resp.json();
+}
+export async function searchKnowledge(query: string, limit = 5): Promise<any[]> {
+  const resp = await fetch(`${API_BASE}/search?query=${encodeURIComponent(query)}&limit=${limit}`);
+  if (!resp.ok) {
+    throw new Error("Failed to search knowledge");
   }
   return resp.json();
 }
