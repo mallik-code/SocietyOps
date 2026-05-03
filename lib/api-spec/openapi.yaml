@@ -798,6 +798,9 @@ components:
         updated_at:
           type: string
           nullable: true
+        confidence:
+          type: string
+          nullable: true
       required:
         - id
         - message_text
@@ -881,6 +884,15 @@ components:
           type: string
           nullable: true
         category:
+          type: string
+          nullable: true
+        priority:
+          type: string
+          nullable: true
+        is_complaint:
+          type: boolean
+          nullable: true
+        confidence:
           type: string
           nullable: true
         timestamp:

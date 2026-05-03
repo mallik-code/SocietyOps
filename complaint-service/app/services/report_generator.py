@@ -29,17 +29,17 @@ def generate_daily_report(db: Session, report_date: Optional[date] = None) -> Da
     total = db.query(func.count(Ticket.id)).filter(day_filter).scalar() or 0
     open_count = (
         db.query(func.count(Ticket.id))
-        .filter(day_filter, Ticket.status == TicketStatus.OPEN)
+        .filter(day_filter, Ticket.status == TicketStatus.open)
         .scalar() or 0
     )
     in_progress = (
         db.query(func.count(Ticket.id))
-        .filter(day_filter, Ticket.status == TicketStatus.IN_PROGRESS)
+        .filter(day_filter, Ticket.status == TicketStatus.in_progress)
         .scalar() or 0
     )
     resolved = (
         db.query(func.count(Ticket.id))
-        .filter(day_filter, Ticket.status == TicketStatus.RESOLVED)
+        .filter(day_filter, Ticket.status == TicketStatus.resolved)
         .scalar() or 0
     )
 
@@ -72,7 +72,7 @@ def generate_daily_report(db: Session, report_date: Optional[date] = None) -> Da
 
     resolved_tickets = (
         db.query(Ticket.created_at, Ticket.updated_at)
-        .filter(day_filter, Ticket.status == TicketStatus.RESOLVED)
+        .filter(day_filter, Ticket.status == TicketStatus.resolved)
         .all()
     )
     avg_hours: Optional[float] = None
@@ -108,7 +108,7 @@ def _get_oldest_pending(db: Session, limit: int = 5) -> list[Ticket]:
     """Return the oldest tickets still in OPEN or IN_PROGRESS state."""
     return (
         db.query(Ticket)
-        .filter(Ticket.status.in_([TicketStatus.OPEN, TicketStatus.IN_PROGRESS]))
+        .filter(Ticket.status.in_([TicketStatus.open, TicketStatus.in_progress]))
         .order_by(Ticket.created_at.asc())
         .limit(limit)
         .all()

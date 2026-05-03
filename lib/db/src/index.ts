@@ -50,12 +50,15 @@ export async function runMigrations(): Promise<void> {
     );
 
     CREATE TABLE IF NOT EXISTS raw_messages (
-      id          SERIAL PRIMARY KEY,
-      text        TEXT NOT NULL,
-      sender      TEXT NOT NULL,
-      group_name  TEXT,
-      category    TEXT,
-      timestamp   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      id            SERIAL PRIMARY KEY,
+      text          TEXT NOT NULL,
+      sender        TEXT NOT NULL,
+      group_name    TEXT,
+      category      TEXT,
+      priority      TEXT,
+      is_complaint  BOOLEAN,
+      confidence    TEXT,
+      timestamp     TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
     CREATE TABLE IF NOT EXISTS whatsapp_groups (

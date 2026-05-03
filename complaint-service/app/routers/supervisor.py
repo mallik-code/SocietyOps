@@ -77,10 +77,10 @@ def create_action(payload: SupervisorActionCreate, db: Session = Depends(get_db)
     action = SupervisorAction(ticket_id=payload.ticket_id, action=payload.action)
     db.add(action)
 
-    if payload.action == SupervisorActionType.STARTED:
-        ticket.status = TicketStatus.IN_PROGRESS
-    elif payload.action == SupervisorActionType.RESOLVED:
-        ticket.status = TicketStatus.RESOLVED
+    if payload.action == SupervisorActionType.started:
+        ticket.status = TicketStatus.in_progress
+    elif payload.action == SupervisorActionType.resolved:
+        ticket.status = TicketStatus.resolved
 
     db.commit()
     db.refresh(action)

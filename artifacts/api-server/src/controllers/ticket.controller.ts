@@ -43,11 +43,12 @@ export class TicketController {
     const order = ["open", "in_progress", "resolved", "delayed", "closed"];
     const counts: Record<string, number> = {};
     for (const t of tickets) {
-      counts[t.status] = (counts[t.status] ?? 0) + 1;
+      if (!t.status) continue;
+      const s = t.status.toLowerCase();
+      counts[s] = (counts[s] ?? 0) + 1;
     }
     const data = order
-      .filter((s) => counts[s])
-      .map((status) => GetStatusBreakdownResponseItem.parse({ status, count: counts[status] }));
+      .map((status) => GetStatusBreakdownResponseItem.parse({ status, count: counts[status] ?? 0 }));
     res.json(data);
   };
 

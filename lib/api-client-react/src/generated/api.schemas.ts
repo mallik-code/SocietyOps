@@ -122,6 +122,9 @@ export interface RawMessage {
   sender: string;
   group_name?: string | null;
   category?: string | null;
+  priority?: string | null;
+  is_complaint?: boolean | null;
+  confidence?: string | null;
   timestamp: string;
 }
 

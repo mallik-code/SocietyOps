@@ -25,36 +25,36 @@ logger = logging.getLogger(__name__)
 
 _ACTION_MAP: dict[str, SupervisorActionType] = {
     # STARTED
-    "started":    SupervisorActionType.STARTED,
-    "start":      SupervisorActionType.STARTED,
-    "begin":      SupervisorActionType.STARTED,
-    "inprogress": SupervisorActionType.STARTED,
-    "in_progress":SupervisorActionType.STARTED,
-    "wip":        SupervisorActionType.STARTED,
+    "started":    SupervisorActionType.started,
+    "start":      SupervisorActionType.started,
+    "begin":      SupervisorActionType.started,
+    "inprogress": SupervisorActionType.started,
+    "in_progress":SupervisorActionType.started,
+    "wip":        SupervisorActionType.started,
     # RESOLVED
-    "resolved":   SupervisorActionType.RESOLVED,
-    "resolve":    SupervisorActionType.RESOLVED,
-    "done":       SupervisorActionType.RESOLVED,
-    "fixed":      SupervisorActionType.RESOLVED,
-    "complete":   SupervisorActionType.RESOLVED,
-    "completed":  SupervisorActionType.RESOLVED,
-    "closed":     SupervisorActionType.RESOLVED,
-    "close":      SupervisorActionType.RESOLVED,
+    "resolved":   SupervisorActionType.resolved,
+    "resolve":    SupervisorActionType.resolved,
+    "done":       SupervisorActionType.resolved,
+    "fixed":      SupervisorActionType.resolved,
+    "complete":   SupervisorActionType.resolved,
+    "completed":  SupervisorActionType.resolved,
+    "closed":     SupervisorActionType.resolved,
+    "close":      SupervisorActionType.resolved,
     # DELAYED
-    "delayed":    SupervisorActionType.DELAYED,
-    "delay":      SupervisorActionType.DELAYED,
-    "postponed":  SupervisorActionType.DELAYED,
-    "postpone":   SupervisorActionType.DELAYED,
-    "pending":    SupervisorActionType.DELAYED,
-    "hold":       SupervisorActionType.DELAYED,
-    "onhold":     SupervisorActionType.DELAYED,
+    "delayed":    SupervisorActionType.delayed,
+    "delay":      SupervisorActionType.delayed,
+    "postponed":  SupervisorActionType.delayed,
+    "postpone":   SupervisorActionType.delayed,
+    "pending":    SupervisorActionType.delayed,
+    "hold":       SupervisorActionType.delayed,
+    "onhold":     SupervisorActionType.delayed,
 }
 
 # Status transitions triggered by each action
 _STATUS_MAP: dict[SupervisorActionType, TicketStatus] = {
-    SupervisorActionType.STARTED:  TicketStatus.IN_PROGRESS,
-    SupervisorActionType.RESOLVED: TicketStatus.RESOLVED,
-    SupervisorActionType.DELAYED:  TicketStatus.IN_PROGRESS,  # still being handled
+    SupervisorActionType.started:  TicketStatus.in_progress,
+    SupervisorActionType.resolved: TicketStatus.resolved,
+    SupervisorActionType.delayed:  TicketStatus.in_progress,  # still being handled
 }
 
 # Regex: optional prefix (ticket / # / id) + digits + action word

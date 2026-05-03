@@ -10,24 +10,6 @@ export class WebhookService {
     const event = payload.event || payload.type;
     logger.info({ event, instance: payload.instance }, "Received Evolution webhook");
 
-    // 1. Forward to the core complaint service (FastAPI)
-    try {
-      const response = await fetch(`${COMPLAINT_SERVICE_URL}/evolution/events`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!response.ok) {
-        logger.warn(
-          { status: response.status, url: response.url },
-          "Failed to forward webhook to complaint-service"
-        );
-      }
-    } catch (err) {
-      logger.error({ err }, "Error forwarding webhook to complaint-service");
-    }
-
-    // 2. Process for the dashboard
     // Handle both v1 (messages.upsert) and v2 (MESSAGES_UPSERT)
     if (event !== "messages.upsert" && event !== "MESSAGES_UPSERT") {
       return;
@@ -68,38 +50,68 @@ export class WebhookService {
     const sender = data.pushName || data.key.participant || remoteJid || "Unknown";
     const groupName = isGroup ? remoteJid : null;
 
-    logger.info({ sender, isGroup, text: text.substring(0, 20) }, "Processing new message for dashboard");
+    // 1. Check if the sender/group is tracked in Policies
+    let isTracked = false;
+    if (isGroup) {
+      const group = trackedGroups.find(g => g.group_id === remoteJid);
+      if (group && group.enabled) {
+        isTracked = true;
+        group.message_count++;
+        policyRepository.updateGroup(group);
+        logger.info({ groupId: remoteJid }, "Incremented group message count");
+      }
+    } else {
+      const phone = remoteJid?.split("@")[0].replace(/\+/g, "");
+      const contact = trackedContacts.find(c => c.phone.replace(/\+/g, "") === phone);
+      if (contact && contact.enabled) {
+        isTracked = true;
+        contact.message_count++;
+        policyRepository.updateContact(contact);
+        logger.info({ phone }, "Incremented contact message count");
+      }
+    }
+
+    if (!isTracked) {
+      logger.info({ remoteJid, sender }, "Ignoring message: not in tracked Policies");
+      return;
+    }
+
+    // 2. Forward to the core complaint service (FastAPI)
+    let classificationResult: any = null;
+    try {
+      const response = await fetch(`${COMPLAINT_SERVICE_URL}/evolution/events`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (response.ok) {
+        classificationResult = await response.json();
+      } else {
+        logger.warn(
+          { status: response.status, url: response.url },
+          "Failed to forward webhook to complaint-service"
+        );
+      }
+    } catch (err) {
+      logger.error({ err }, "Error forwarding webhook to complaint-service");
+    }
+
+    logger.info({ sender, isGroup, text: text.substring(0, 20) }, "Processing tracked message for dashboard");
 
     const newMessage = {
       id: Date.now(),
       text: text.trim(),
       sender,
       group_name: groupName,
-      category: null,
+      category: classificationResult?.classification?.category || null,
+      priority: classificationResult?.classification?.priority || null,
+      is_complaint: classificationResult?.is_complaint || false,
+      confidence: classificationResult?.classification?.confidence?.toString() || null,
       timestamp: new Date().toISOString(),
     };
 
     // Save to repository (in-memory list and DB)
     await messageRepository.saveRawMessage(newMessage);
-
-    // Update message counts for policies
-    if (isGroup) {
-      const group = trackedGroups.find(g => g.group_id === remoteJid);
-      if (group) {
-        group.message_count++;
-        policyRepository.updateGroup(group);
-        logger.info({ groupId: remoteJid }, "Incremented group message count");
-      }
-    } else {
-      // Normalize JID for contact matching (remove @s.whatsapp.net and optional +)
-      const phone = remoteJid?.split("@")[0].replace(/\+/g, "");
-      const contact = trackedContacts.find(c => c.phone.replace(/\+/g, "") === phone);
-      if (contact) {
-        contact.message_count++;
-        policyRepository.updateContact(contact);
-        logger.info({ phone }, "Incremented contact message count");
-      }
-    }
   }
 }
 

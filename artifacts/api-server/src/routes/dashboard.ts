@@ -18,6 +18,7 @@ export type Ticket = {
   group_name: string | null;
   created_at: string;
   updated_at: string | null;
+  confidence: string | null;
 };
 
 // Initialized to empty — populated from DB on startup in src/index.ts
@@ -30,6 +31,9 @@ export const rawMessages: Array<{
   sender: string;
   group_name: string | null;
   category: string | null;
+  priority: string | null;
+  is_complaint: boolean | null;
+  confidence: string | null;
   timestamp: string;
 }> = [];
 

@@ -129,6 +129,33 @@ export function TicketsTable() {
         );
       },
     },
+    {
+      accessorKey: "confidence",
+      header: "AI Conf.",
+      cell: ({ row }) => {
+        const conf = parseFloat(row.original.confidence || "0");
+        if (!conf) return <span className="text-muted-foreground text-xs">—</span>;
+        
+        let colorClass = "text-muted-foreground";
+        if (conf >= 0.9) colorClass = "text-emerald-600 dark:text-emerald-400";
+        else if (conf >= 0.7) colorClass = "text-amber-600 dark:text-amber-400";
+        else colorClass = "text-rose-600 dark:text-rose-400";
+
+        return (
+          <div className="flex flex-col gap-1">
+            <div className={`text-xs font-bold ${colorClass}`}>
+              {(conf * 100).toFixed(0)}%
+            </div>
+            <div className="w-12 h-1 bg-muted rounded-full overflow-hidden">
+              <div 
+                className={`h-full ${conf >= 0.9 ? 'bg-emerald-500' : conf >= 0.7 ? 'bg-amber-500' : 'bg-rose-500'}`} 
+                style={{ width: `${conf * 100}%` }} 
+              />
+            </div>
+          </div>
+        );
+      },
+    },
   ], [updateStatus.isPending]);
 
   const table = useReactTable({

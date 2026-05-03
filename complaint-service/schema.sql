@@ -15,19 +15,21 @@ CREATE TABLE IF NOT EXISTS tickets (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     message_text  TEXT    NOT NULL,
     category      TEXT,                          -- AI-classified category
-    priority      TEXT    NOT NULL               -- LOW | MEDIUM | HIGH | CRITICAL
-                  CHECK (priority IN ('LOW','MEDIUM','HIGH','CRITICAL'))
-                  DEFAULT 'MEDIUM',
+    priority      TEXT    NOT NULL               -- Low | Medium | High | Critical
+                  CHECK (priority IN ('Low','Medium','High','Critical'))
+                  DEFAULT 'Medium',
     location      TEXT,                          -- extracted or provided location
-    status        TEXT    NOT NULL               -- OPEN | IN_PROGRESS | RESOLVED
-                  CHECK (status IN ('OPEN','IN_PROGRESS','RESOLVED'))
-                  DEFAULT 'OPEN',
+    status        TEXT    NOT NULL               -- open | in_progress | resolved | delayed | closed
+                  CHECK (status IN ('open','in_progress','resolved','delayed','closed'))
+                  DEFAULT 'open',
     created_at    TEXT    NOT NULL               -- ISO-8601 UTC timestamp
                   DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     updated_at    TEXT    NOT NULL
                   DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     reporter_name TEXT,                          -- WhatsApp display name
-    group_name    TEXT                           -- WhatsApp group name
+    group_name    TEXT,                          -- WhatsApp group name
+    is_test       INTEGER NOT NULL DEFAULT 0,    -- 1 if seeded/test data
+    confidence    TEXT                           -- AI confidence score
 );
 
 -- Keep updated_at in sync automatically
@@ -56,7 +58,12 @@ CREATE TABLE IF NOT EXISTS message_logs (
     sender      TEXT,                            -- WhatsApp sender ID / phone
     group_name  TEXT,
     timestamp   TEXT    NOT NULL
-                DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+                DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    is_complaint INTEGER,                        -- 1 if AI thinks it is a complaint
+    category    TEXT,                            -- AI category
+    priority    TEXT,                            -- AI priority
+    confidence  TEXT,                            -- AI confidence score
+    is_test     INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX IF NOT EXISTS idx_message_logs_sender    ON message_logs (sender);
@@ -70,10 +77,11 @@ CREATE TABLE IF NOT EXISTS supervisor_actions (
     id        INTEGER PRIMARY KEY AUTOINCREMENT,
     ticket_id INTEGER NOT NULL
               REFERENCES tickets (id) ON DELETE CASCADE,
-    action    TEXT    NOT NULL                   -- STARTED | RESOLVED | DELAYED
-              CHECK (action IN ('STARTED','RESOLVED','DELAYED')),
+    action    TEXT    NOT NULL                   -- started | resolved | delayed
+              CHECK (action IN ('started','resolved','delayed')),
     timestamp TEXT    NOT NULL
-              DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+              DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    is_test   INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX IF NOT EXISTS idx_supervisor_actions_ticket ON supervisor_actions (ticket_id);

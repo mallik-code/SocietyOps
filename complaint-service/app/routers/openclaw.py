@@ -51,9 +51,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/openclaw", tags=["OpenClaw"])
 
 _PRIORITY_MAP = {
-    "High": TicketPriority.HIGH,
-    "Medium": TicketPriority.MEDIUM,
-    "Low": TicketPriority.LOW,
+    "High": TicketPriority.High,
+    "Medium": TicketPriority.Medium,
+    "Low": TicketPriority.Low,
 }
 
 
@@ -191,13 +191,13 @@ async def handle_openclaw_event(
     whatsapp_reply: str
 
     if post_decision.allow_ticket:
-        priority = _PRIORITY_MAP.get(result.priority, TicketPriority.MEDIUM)
+        priority = _PRIORITY_MAP.get(result.priority, TicketPriority.Medium)
         ticket = Ticket(
             message_text=message_text,
             category=result.category,
             priority=priority,
             location=result.location,
-            status=TicketStatus.OPEN,
+            status=TicketStatus.open,
             reporter_name=sender_name,
             group_name=group_name,
         )

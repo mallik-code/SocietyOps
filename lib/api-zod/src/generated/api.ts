@@ -134,6 +134,7 @@ export const ListTicketsResponseItem = zod.object({
   group_name: zod.string().nullish(),
   created_at: zod.string(),
   updated_at: zod.string().nullish(),
+  confidence: zod.string().nullish(),
 });
 export const ListTicketsResponse = zod.array(ListTicketsResponseItem);
 
@@ -155,6 +156,7 @@ export const GetTicketResponse = zod.object({
   group_name: zod.string().nullish(),
   created_at: zod.string(),
   updated_at: zod.string().nullish(),
+  confidence: zod.string().nullish(),
 });
 
 /**
@@ -179,6 +181,7 @@ export const UpdateTicketStatusResponse = zod.object({
   group_name: zod.string().nullish(),
   created_at: zod.string(),
   updated_at: zod.string().nullish(),
+  confidence: zod.string().nullish(),
 });
 
 /**
@@ -256,6 +259,9 @@ export const ListMessagesResponseItem = zod.object({
   sender: zod.string(),
   group_name: zod.string().nullish(),
   category: zod.string().nullish(),
+  priority: zod.string().nullish(),
+  is_complaint: zod.boolean().nullish(),
+  confidence: zod.string().nullish(),
   timestamp: zod.string(),
 });
 export const ListMessagesResponse = zod.array(ListMessagesResponseItem);

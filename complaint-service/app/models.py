@@ -9,22 +9,24 @@ from app.database import Base
 
 
 class TicketStatus(str, enum.Enum):
-    OPEN = "OPEN"
-    IN_PROGRESS = "IN_PROGRESS"
-    RESOLVED = "RESOLVED"
+    open = "open"
+    in_progress = "in_progress"
+    resolved = "resolved"
+    delayed = "delayed"
+    closed = "closed"
 
 
 class TicketPriority(str, enum.Enum):
-    LOW = "LOW"
-    MEDIUM = "MEDIUM"
-    HIGH = "HIGH"
-    CRITICAL = "CRITICAL"
+    Low = "Low"
+    Medium = "Medium"
+    High = "High"
+    Critical = "Critical"
 
 
 class SupervisorActionType(str, enum.Enum):
-    STARTED = "STARTED"
-    RESOLVED = "RESOLVED"
-    DELAYED = "DELAYED"
+    started = "started"
+    resolved = "resolved"
+    delayed = "delayed"
 
 
 def _utcnow():
@@ -37,14 +39,16 @@ class Ticket(Base):
     id = Column(Integer, primary_key=True, index=True)
     message_text = Column(Text, nullable=False)
     category = Column(String(100), nullable=True)
-    priority = Column(SAEnum(TicketPriority), nullable=False, default=TicketPriority.MEDIUM)
+    priority = Column(SAEnum(TicketPriority), nullable=False, default=TicketPriority.Medium)
     location = Column(String(255), nullable=True)
-    status = Column(SAEnum(TicketStatus), nullable=False, default=TicketStatus.OPEN)
+    status = Column(SAEnum(TicketStatus), nullable=False, default=TicketStatus.open)
+
     created_at = Column(DateTime(timezone=True), nullable=False, default=_utcnow)
     updated_at = Column(DateTime(timezone=True), nullable=False, default=_utcnow, onupdate=_utcnow)
     reporter_name = Column(String(255), nullable=True)
     group_name = Column(String(255), nullable=True)
     is_test = Column(Boolean, default=False)
+    confidence = Column(String(20), nullable=True)
 
     supervisor_actions = relationship("SupervisorAction", back_populates="ticket", cascade="all, delete-orphan")
 
@@ -56,6 +60,13 @@ class MessageLog(Base):
     raw_message = Column(Text, nullable=False)
     sender = Column(String(255), nullable=True)
     group_name = Column(String(255), nullable=True)
+    
+    # New classification fields
+    is_complaint = Column(Boolean, nullable=True)
+    category = Column(String(100), nullable=True)
+    priority = Column(String(50), nullable=True)
+    confidence = Column(String(20), nullable=True)
+    
     timestamp = Column(DateTime(timezone=True), nullable=False, default=_utcnow)
     is_test = Column(Boolean, default=False)
 

@@ -8,14 +8,17 @@ export class TicketService {
   public async getTickets(filters: { status?: string; priority?: string; category?: string; limit?: number }) {
     let tickets = await ticketRepository.getAllTickets();
 
-    if (filters.status) {
-      tickets = tickets.filter((t) => t.status === filters.status);
+    if (filters.status && filters.status !== "all_statuses") {
+      const s = filters.status.toLowerCase();
+      tickets = tickets.filter((t) => t.status?.toLowerCase() === s);
     }
-    if (filters.priority) {
-      tickets = tickets.filter((t) => t.priority === filters.priority);
+    if (filters.priority && filters.priority !== "all_priorities") {
+      const p = filters.priority.toLowerCase();
+      tickets = tickets.filter((t) => t.priority?.toLowerCase() === p);
     }
-    if (filters.category) {
-      tickets = tickets.filter((t) => t.category === filters.category);
+    if (filters.category && filters.category !== "all_categories") {
+      const c = filters.category.toLowerCase();
+      tickets = tickets.filter((t) => t.category?.toLowerCase() === c);
     }
 
     const n = filters.limit ?? 50;
@@ -30,17 +33,18 @@ export class TicketService {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const open = tickets.filter((t) => t.status === "open").length;
-    const inProgress = tickets.filter((t) => t.status === "in_progress").length;
+    const open = tickets.filter((t) => t.status?.toLowerCase() === "open").length;
+    const inProgress = tickets.filter((t) => t.status?.toLowerCase() === "in_progress").length;
     const resolvedToday = tickets.filter((t) => {
-      if (t.status !== "resolved" && t.status !== "closed") return false;
+      const s = t.status?.toLowerCase();
+      if (s !== "resolved" && s !== "closed") return false;
       const updated = t.updated_at ? new Date(t.updated_at) : null;
       return updated && updated >= today;
     }).length;
     const highPriorityOpen = tickets.filter(
-      (t) => t.priority === "High" && (t.status === "open" || t.status === "in_progress")
+      (t) => t.priority?.toLowerCase() === "high" && (t.status?.toLowerCase() === "open" || t.status?.toLowerCase() === "in_progress")
     ).length;
-    const closed = tickets.filter((t) => t.status === "closed").length;
+    const closed = tickets.filter((t) => t.status?.toLowerCase() === "closed").length;
 
     const resolvedTickets = tickets.filter(
       (t) => t.updated_at && (t.status === "resolved" || t.status === "closed")
@@ -72,7 +76,10 @@ export class TicketService {
     const tickets = await ticketRepository.getAllTickets();
     const counts: Record<string, number> = {};
     for (const t of tickets) {
-      counts[t.category] = (counts[t.category] ?? 0) + 1;
+      const cat = t.category || "Other";
+      // Normalize to TitleCase for display
+      const normalized = cat.charAt(0).toUpperCase() + cat.slice(1).toLowerCase();
+      counts[normalized] = (counts[normalized] ?? 0) + 1;
     }
     return Object.entries(counts)
       .sort((a, b) => b[1] - a[1])
@@ -87,11 +94,12 @@ export class TicketService {
     const order = ["High", "Medium", "Low"];
     const counts: Record<string, number> = {};
     for (const t of tickets) {
-      counts[t.priority] = (counts[t.priority] ?? 0) + 1;
+      if (!t.priority) continue;
+      const p = t.priority.charAt(0).toUpperCase() + t.priority.slice(1).toLowerCase();
+      counts[p] = (counts[p] ?? 0) + 1;
     }
     return order
-      .filter((p) => counts[p])
-      .map((priority) => ({ priority, count: counts[priority] }));
+      .map((priority) => ({ priority, count: counts[priority] ?? 0 }));
   }
 
   /**

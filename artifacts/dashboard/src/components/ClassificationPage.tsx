@@ -238,12 +238,19 @@ export function ClassificationPage({ isDark: _isDark }: ClassificationPageProps)
                       ) : (
                         <Circle className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                       )}
-                      <span className="text-xs font-medium text-muted-foreground">Category:</span>
                       <span
                         className={`px-2 py-0.5 rounded-md text-xs font-semibold border ${style.bg} ${style.text} ${style.border}`}
                       >
                         {msg.category ?? "Unclassified"}
                       </span>
+                      {msg.confidence && (
+                        <div className="ml-auto flex items-center gap-1.5 bg-muted/50 px-2 py-0.5 rounded-md border border-border">
+                          <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-tight">AI Confidence</span>
+                          <span className={`text-xs font-mono font-bold ${Number(msg.confidence) >= 0.7 ? 'text-emerald-600 dark:text-emerald-400' : 'text-orange-500 dark:text-orange-400'}`}>
+                            {(Number(msg.confidence) * 100).toFixed(0)}%
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );

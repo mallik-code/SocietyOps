@@ -36,11 +36,12 @@ class ClassifyRequest(BaseModel):
 class TicketBase(BaseModel):
     message_text: str
     category: Optional[str] = None
-    priority: TicketPriority = TicketPriority.MEDIUM
+    priority: TicketPriority = TicketPriority.Medium
     location: Optional[str] = None
-    status: TicketStatus = TicketStatus.OPEN
+    status: TicketStatus = TicketStatus.open
     reporter_name: Optional[str] = None
     group_name: Optional[str] = None
+    confidence: Optional[float] = None
 
 
 class TicketCreate(TicketBase):

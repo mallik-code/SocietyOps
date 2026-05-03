@@ -9,8 +9,8 @@ export class MessageRepository {
     rawMessages.unshift(message);
     try {
       await pool.query(
-        "INSERT INTO raw_messages (text, sender, group_name, category, timestamp) VALUES ($1, $2, $3, $4, $5)",
-        [message.text, message.sender, message.group_name, message.category, message.timestamp]
+        "INSERT INTO raw_messages (text, sender, group_name, category, priority, is_complaint, confidence, timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+        [message.text, message.sender, message.group_name, message.category, message.priority, message.is_complaint, message.confidence, message.timestamp]
       );
     } catch (err) {
       console.error("Failed to save message to DB", err);
@@ -55,6 +55,9 @@ export class MessageRepository {
         sender: r.sender,
         group_name: r.group_name,
         category: r.category,
+        priority: r.priority,
+        is_complaint: r.is_complaint,
+        confidence: r.confidence,
         timestamp: r.timestamp.toISOString()
       })));
     } catch (err) {

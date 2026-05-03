@@ -26,9 +26,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/webhook", tags=["Webhook"])
 
 _PRIORITY_MAP = {
-    "High": TicketPriority.HIGH,
-    "Medium": TicketPriority.MEDIUM,
-    "Low": TicketPriority.LOW,
+    "High": TicketPriority.High,
+    "Medium": TicketPriority.Medium,
+    "Low": TicketPriority.Low,
 }
 
 
@@ -69,11 +69,12 @@ async def receive_message(payload: IncomingMessage, db: Session = Depends(get_db
         )
 
     # ── Log raw message ───────────────────────────────────────────────────────
-    db.add(MessageLog(
+    db_log = MessageLog(
         raw_message=payload.message_text,
         sender=payload.sender,
         group_name=payload.group_name,
-    ))
+    )
+    db.add(db_log)
     db.flush()
 
     # ── AI classification ─────────────────────────────────────────────────────
@@ -85,6 +86,12 @@ async def receive_message(payload: IncomingMessage, db: Session = Depends(get_db
             is_complaint=True, category="Other",
             priority="Medium", location=None, confidence=0.0,
         )
+
+    # Update log with classification info
+    db_log.is_complaint = result.is_complaint
+    db_log.category = result.category
+    db_log.priority = result.priority
+    db_log.confidence = str(result.confidence)
 
     classification = ClassificationResponse(
         is_complaint=result.is_complaint,
@@ -104,15 +111,16 @@ async def receive_message(payload: IncomingMessage, db: Session = Depends(get_db
     whatsapp_reply: str
 
     if post.allow_ticket:
-        priority = _PRIORITY_MAP.get(result.priority, TicketPriority.MEDIUM)
+        priority = _PRIORITY_MAP.get(result.priority, TicketPriority.Medium)
         ticket = Ticket(
             message_text=payload.message_text,
             category=result.category,
             priority=priority,
             location=result.location or payload.location,
-            status=TicketStatus.OPEN,
+            status=TicketStatus.open,
             reporter_name=payload.reporter_name,
             group_name=payload.group_name,
+            confidence=result.confidence,
         )
         db.add(ticket)
         db.commit()
