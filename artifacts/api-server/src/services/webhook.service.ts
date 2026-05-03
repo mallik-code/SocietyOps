@@ -96,7 +96,7 @@ export class WebhookService {
       logger.error({ err }, "Error forwarding webhook to complaint-service");
     }
 
-    logger.info({ sender, isGroup, text: text.substring(0, 20) }, "Processing tracked message for dashboard");
+    logger.info({ sender, isGroup, text }, "Processing tracked message for dashboard");
 
     const newMessage = {
       id: Date.now(),

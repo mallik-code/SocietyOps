@@ -15,12 +15,42 @@ class TicketStatus(str, enum.Enum):
     delayed = "delayed"
     closed = "closed"
 
+    # Aliases for SQLAlchemy
+    OPEN = "open"
+    IN_PROGRESS = "in_progress"
+    RESOLVED = "resolved"
+    DELAYED = "delayed"
+    CLOSED = "closed"
+
+    @classmethod
+    def _missing_(cls, value):
+        if isinstance(value, str):
+            for member in cls:
+                if member.value.lower() == value.lower():
+                    return member
+        return None
+
 
 class TicketPriority(str, enum.Enum):
     Low = "Low"
     Medium = "Medium"
     High = "High"
     Critical = "Critical"
+
+    # Aliases for SQLAlchemy member name lookup (robustness against DB casing)
+    LOW = "Low"
+    MEDIUM = "Medium"
+    HIGH = "High"
+    CRITICAL = "Critical"
+
+    @classmethod
+    def _missing_(cls, value):
+        if isinstance(value, str):
+            # Check both name and value case-insensitively
+            for member in cls:
+                if member.value.lower() == value.lower() or member.name.lower() == value.lower():
+                    return member
+        return None
 
 
 class SupervisorActionType(str, enum.Enum):

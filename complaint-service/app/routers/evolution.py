@@ -58,9 +58,10 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/evolution", tags=["Evolution API"])
 
 _PRIORITY_MAP = {
-    "High":   TicketPriority.High,
-    "Medium": TicketPriority.Medium,
-    "Low":    TicketPriority.Low,
+    "high":     TicketPriority.High,
+    "medium":   TicketPriority.Medium,
+    "low":      TicketPriority.Low,
+    "critical": TicketPriority.Critical,
 }
 
 
@@ -262,9 +263,10 @@ async def handle_evolution_event(
     whatsapp_reply: str = ""
 
     if post.allow_ticket:
-        priority = _PRIORITY_MAP.get(result.priority, TicketPriority.Medium)
+        priority_key = result.priority.lower() if result.priority else "medium"
+        priority = _PRIORITY_MAP.get(priority_key, TicketPriority.Medium)
         ticket = Ticket(
-            message_text=text,
+            message_text=message_text,
             category=result.category,
             priority=priority,
             location=result.location,
