@@ -40,12 +40,20 @@ RUN mkdir -p /workspace/apps/api-server/dist/data && \
 
 # ── Stage 3: lean runtime image ──────────────────────────────────────────────
 FROM node:22-slim
-# Match the build-stage path so esbuild-plugin-pino's baked-in absolute worker
-# paths (/workspace/apps/api-server/dist/thread-stream-worker.mjs) resolve correctly.
+RUN corepack enable
 WORKDIR /workspace/apps/api-server
 
+# Copy bundle and data
 COPY --from=build /workspace/apps/api-server/dist/ ./dist/
 COPY --from=build /workspace/apps/api-server/dist/data/ ./dist/data/
+
+# Copy workspace root manifests and lockfile for prod install
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc /workspace/
+COPY apps/api-server/package.json ./package.json
+
+# Install only production dependencies for the api-server
+# We need this for native modules like @napi-rs/canvas which can't be bundled
+RUN cd /workspace && pnpm install --prod --filter @workspace/api-server
 
 ENV PORT=3001
 EXPOSE 3001

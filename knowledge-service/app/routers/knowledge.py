@@ -39,13 +39,21 @@ async def ingest(payload: KnowledgeCreate, service: KnowledgeService = Depends(g
     return await service.ingest_knowledge(
         content=payload.content,
         category=payload.category,
-        metadata=payload.metadata or {}
+        metadata=payload.metadata or {},
+        collection_id=payload.collection_id,
+        document_id=payload.document_id,
+        source_name=payload.source_name,
+        page_number=payload.page_number
     )
 
 @router.get("/search", response_model=List[SearchResult])
-async def search(query: str, limit: int = 5, service: KnowledgeService = Depends(get_knowledge_service)):
-    return await service.search_knowledge(query, limit)
+async def search(query: str, limit: int = 5, collection_id: Optional[str] = None, service: KnowledgeService = Depends(get_knowledge_service)):
+    return await service.search_knowledge(query, limit, collection_id)
 
 @router.get("/categories", response_model=List[CategoryResponse])
 async def list_categories(q: Optional[str] = None, service: KnowledgeService = Depends(get_knowledge_service)):
     return await service.get_categories(search=q)
+
+@router.get("/documents")
+async def list_documents(collection_id: str, service: KnowledgeService = Depends(get_knowledge_service)):
+    return await service.get_documents(collection_id)

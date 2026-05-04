@@ -1,7 +1,10 @@
 import httpx
 import os
+import logging
 from typing import List
 from societyops_dependencies.interfaces.ai import EmbeddingProvider
+
+logger = logging.getLogger(__name__)
 
 class GeminiEmbeddingProvider(EmbeddingProvider):
     def __init__(self, api_key: str):
@@ -21,10 +24,20 @@ class GeminiEmbeddingProvider(EmbeddingProvider):
                     json={
                         "model": self.model,
                         "content": {"parts": [{"text": text}]}
-                    }
+                    },
+                    timeout=10.0
                 )
-                response.raise_for_status()
-                return response.json()["embedding"]["values"]
+                
+                if response.status_code != 200:
+                    logger.error(f"Embedding API error {response.status_code}: {response.text}")
+                    return [0.0] * 768
+                
+                data = response.json()
+                if "embedding" not in data:
+                    logger.error(f"Invalid embedding response: {data}")
+                    return [0.0] * 768
+                    
+                return data["embedding"]["values"]
         except Exception as e:
-            print(f"Embedding API failed: {e}. Returning dummy vector.")
+            logger.error(f"Embedding API exception: {str(e)}")
             return [0.0] * 768

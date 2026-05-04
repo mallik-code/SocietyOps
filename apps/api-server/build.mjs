@@ -100,6 +100,12 @@ async function buildAll() {
       "puppeteer",
       "puppeteer-core",
       "electron",
+      "pdf-parse",
+      "@napi-rs/canvas",
+      "multer",
+      "mammoth",
+      "googleapis",
+      "xlsx"
     ],
     sourcemap: "linked",
     plugins: [

@@ -11,7 +11,8 @@ import { MessagesPage } from "@/components/MessagesPage";
 import { ClassificationPage } from "@/components/ClassificationPage";
 import NotFound from "@/pages/not-found";
 import KnowledgeBankPage from "@/pages/KnowledgeBankPage";
-import { LayoutDashboard, ShieldCheck, Sun, Moon, Wifi, WifiOff, PlugZap, Sparkles, MessageSquare, Tags, Library } from "lucide-react";
+import ResearchPage from "@/pages/ResearchPage";
+import { LayoutDashboard, ShieldCheck, Sun, Moon, Wifi, WifiOff, PlugZap, Sparkles, MessageSquare, Tags, Library, Microscope } from "lucide-react";
 import { useGetWhatsappStatus } from "@workspace/api-client-react";
 
 const queryClient = new QueryClient({
@@ -114,6 +115,17 @@ function NavBar({ isDark, onToggleDark }: { isDark: boolean; onToggleDark: () =>
             <Library className="w-4 h-4" />
             Knowledge Bank
           </Link>
+          <Link
+            href="/research"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              location === "/research"
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted"
+            }`}
+          >
+            <Microscope className="w-4 h-4" />
+            Research Hub
+          </Link>
         </nav>
 
         <div className="flex items-center gap-3">
@@ -175,6 +187,9 @@ function AppShell() {
         </Route>
         <Route path="/knowledge">
           <KnowledgeBankPage />
+        </Route>
+        <Route path="/research">
+          <ResearchPage />
         </Route>
         <Route component={NotFound} />
       </Switch>

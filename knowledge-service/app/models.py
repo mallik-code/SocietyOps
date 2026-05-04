@@ -18,6 +18,10 @@ class KnowledgeItem(Base):
     id = Column(Integer, primary_key=True, index=True)
     content = Column(Text, nullable=False)
     category = Column(String(50), nullable=True)
+    collection_id = Column(String(50), index=True, nullable=True)
+    document_id = Column(String(100), index=True, nullable=True)
+    source_name = Column(String(255), nullable=True)
+    page_number = Column(Integer, nullable=True)
     metadata_json = Column(JSONB, nullable=True)
     embedding = Column(Vector(768), nullable=True)
     

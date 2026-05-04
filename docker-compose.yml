@@ -164,6 +164,7 @@ services:
       EVOLUTION_API_KEY: ${EVOLUTION_API_KEY:-change-me-strong-key-123}
       EVOLUTION_INSTANCE: ${EVOLUTION_INSTANCE:-complaint-bot}
       KNOWLEDGE_SERVICE_URL: ${KNOWLEDGE_SERVICE_URL:-http://knowledge-service:8000}
+      GOOGLE_DRIVE_API_KEY: ${GOOGLE_DRIVE_API_KEY}
     healthcheck:
       test: ["CMD", "node", "-e",
              "require('http').get('http://localhost:3001/api/healthz',r=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))"]

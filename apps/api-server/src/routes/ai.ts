@@ -7,6 +7,7 @@ import { ticketRepository } from "../repositories/ticket.repository";
 import { trackedGroups, trackedContacts } from "./policies.js";
 
 const router: IRouter = Router();
+const KNOWLEDGE_SERVICE_URL = process.env.KNOWLEDGE_SERVICE_URL || "http://localhost:8000";
 
 const DEFAULT_SYSTEM_PROMPT = `You are a helpful AI assistant integrated into a WhatsApp-based building complaint management system called ComplaintOps.
 
@@ -143,6 +144,28 @@ ${contactRows}
   };
 }
 
+async function buildResearchContext(query: string, collectionId: string): Promise<{ context: string; sources: any[] }> {
+  try {
+    const response = await fetch(`${KNOWLEDGE_SERVICE_URL}/search?query=${encodeURIComponent(query)}&limit=10&collection_id=${collectionId}`);
+    if (!response.ok) throw new Error("Failed to fetch from knowledge service");
+    const results = await response.json();
+    console.log(`Research context for "${query}" in ${collectionId}: ${results.length} results found`);
+    
+    if (results.length === 0) {
+      console.warn(`No research results found for query: ${query}`);
+    }
+
+    const context = `=== RESEARCH DOCUMENTS CONTEXT (Notebook: ${collectionId}) ===\n\n` + 
+      results.map((r: any, i: number) => `[Source ${i+1}: ${r.source_name}, p.${r.page_number}]: ${r.content}`).join("\n\n") +
+      "\n\n=== END OF RESEARCH CONTEXT ===";
+    
+    return { context, sources: results };
+  } catch (err) {
+    console.error("Error building research context:", err);
+    return { context: "No relevant documents found for this query.", sources: [] };
+  }
+}
+
 // ── Conversations ─────────────────────────────────────────────────────────────
 
 router.get("/ai/conversations", async (_req, res) => {
@@ -210,10 +233,11 @@ router.get("/ai/conversations/:id/messages", async (req, res) => {
 // ── Chat (SSE streaming) ──────────────────────────────────────────────────────
 
 router.post("/ai/chat", async (req, res) => {
-  const { conversation_id, message, system_prompt } = req.body as {
+  const { conversation_id, message, system_prompt, collection_id } = req.body as {
     conversation_id: number;
     message: string;
     system_prompt?: string;
+    collection_id?: string;
   };
 
   if (!conversation_id || !message?.trim()) {
@@ -221,45 +245,75 @@ router.post("/ai/chat", async (req, res) => {
     return;
   }
 
-  // Build RAG context from live data
-  const { context: ragContext, meta: contextMeta } = await buildRagContext();
-
-  // Fetch conversation history
-  const history = await db
-    .select()
-    .from(messages)
-    .where(eq(messages.conversationId, conversation_id))
-    .orderBy(asc(messages.createdAt));
-
-  // Persist the user message
-  await db.insert(messages).values(
-    insertMessageSchema.parse({
-      conversationId: conversation_id,
-      role: "user",
-      content: message.trim(),
-    })
-  );
-
-  // Build messages array: system prompt → RAG context → conversation history → new user message
-  const chatMessages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
-    { role: "system", content: system_prompt ?? DEFAULT_SYSTEM_PROMPT },
-    { role: "system", content: ragContext },
-    ...history.map((m) => ({
-      role: m.role as "user" | "assistant" | "system",
-      content: m.content,
-    })),
-    { role: "user", content: message.trim() },
-  ];
-
-  // SSE headers
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
-  res.flushHeaders();
-
-  let fullResponse = "";
-
   try {
+    // Build RAG context
+    let ragContext = "";
+    let contextMeta: any = null;
+    let sources: any[] = [];
+
+    if (collection_id) {
+      const res = await buildResearchContext(message, collection_id);
+      ragContext = res.context;
+      sources = res.sources;
+      contextMeta = { type: "research", collection_id, source_count: sources.length };
+    } else {
+      const res = await buildRagContext();
+      ragContext = res.context;
+      contextMeta = { type: "tickets", ...res.meta };
+    }
+
+    // Verify conversation exists or create one
+    let currentConversationId = conversation_id;
+    const [conversation] = await db
+      .select()
+      .from(conversations)
+      .where(eq(conversations.id, conversation_id))
+      .limit(1);
+
+    if (!conversation) {
+      console.log(`Conversation ${conversation_id} not found. Creating a new default one.`);
+      const [newRow] = await db.insert(conversations).values({
+        title: "Research Assistant",
+      }).returning();
+      currentConversationId = newRow.id;
+      console.log(`Using new conversation ID: ${currentConversationId}`);
+    }
+
+    // Fetch conversation history
+    const history = await db
+      .select()
+      .from(messages)
+      .where(eq(messages.conversationId, currentConversationId))
+      .orderBy(asc(messages.createdAt));
+
+    // Persist the user message
+    await db.insert(messages).values(
+      insertMessageSchema.parse({
+        conversationId: currentConversationId,
+        role: "user",
+        content: message.trim(),
+      })
+    );
+
+    // Build messages array: system prompt → RAG context → conversation history → new user message
+    const chatMessages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
+      { role: "system", content: system_prompt ?? DEFAULT_SYSTEM_PROMPT },
+      { role: "system", content: ragContext },
+      ...history.map((m) => ({
+        role: m.role as "user" | "assistant" | "system",
+        content: m.content,
+      })),
+      { role: "user", content: message.trim() },
+    ];
+
+    // SSE headers
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders();
+
+    let fullResponse = "";
+
     const model = process.env.AI_MODEL ?? "llama-3.3-70b-versatile";
     const stream = await openai.chat.completions.create({
       model,
@@ -279,19 +333,28 @@ router.post("/ai/chat", async (req, res) => {
     // Persist assistant response
     await db.insert(messages).values(
       insertMessageSchema.parse({
-        conversationId: conversation_id,
+        conversationId: currentConversationId,
         role: "assistant",
         content: fullResponse,
       })
     );
 
     // Send done event with context metadata so the UI can show grounding info
-    res.write(`data: ${JSON.stringify({ done: true, context_meta: contextMeta })}\n\n`);
+    res.write(`data: ${JSON.stringify({ done: true, context_meta: contextMeta, sources })}\n\n`);
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "AI request failed";
-    res.write(`data: ${JSON.stringify({ error: msg })}\n\n`);
+    console.error("AI chat error:", err);
+    
+    // If headers already sent, we are in the middle of a stream
+    if (res.headersSent) {
+      res.write(`data: ${JSON.stringify({ error: "An error occurred while generating the response." })}\n\n`);
+      res.end();
+    } else {
+      res.status(500).json({ error: "Failed to process AI chat request" });
+    }
   } finally {
-    res.end();
+    if (!res.writableEnded && res.headersSent) {
+      res.end();
+    }
   }
 });
 
