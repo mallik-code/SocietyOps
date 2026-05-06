@@ -215,6 +215,32 @@ function formatWhatsAppText(text: string) {
       return <s key={index}>{part.slice(1, -1)}</s>;
     }
 
+    return <Fragment key={index}>{formatLinks(part)}</Fragment>;
+  });
+}
+
+function formatLinks(text: string) {
+  const parts = text.split(/(https?:\/\/[^\s<>()]+|www\.[^\s<>()]+)/gi);
+
+  return parts.map((part, index) => {
+    if (!part) return null;
+
+    if (/^(https?:\/\/|www\.)/i.test(part)) {
+      const href = part.startsWith("www.") ? `https://${part}` : part;
+
+      return (
+        <a
+          key={index}
+          href={href}
+          target="_blank"
+          rel="noreferrer"
+          className="text-primary underline underline-offset-2 hover:text-primary/80"
+        >
+          {part}
+        </a>
+      );
+    }
+
     return <Fragment key={index}>{part}</Fragment>;
   });
 }
