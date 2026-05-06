@@ -895,9 +895,41 @@ components:
         confidence:
           type: string
           nullable: true
+        media:
+          $ref: "#/components/schemas/RawMessageMedia"
+          nullable: true
         timestamp:
           type: string
       required: [id, text, sender, timestamp]
+
+    RawMessageMedia:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [image, video, audio, document, sticker, unknown]
+        mimetype:
+          type: string
+          nullable: true
+        file_name:
+          type: string
+          nullable: true
+        caption:
+          type: string
+          nullable: true
+        url:
+          type: string
+          nullable: true
+        data_url:
+          type: string
+          nullable: true
+        seconds:
+          type: integer
+          nullable: true
+        file_size:
+          type: integer
+          nullable: true
+      required: [type]
 
     TrackedContactInput:
       type: object

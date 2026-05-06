@@ -34,9 +34,19 @@ class _TextMessage(BaseModel):
     text: Optional[str] = None
 
 
+class _MediaMessage(BaseModel):
+    caption: Optional[str] = None
+    mimetype: Optional[str] = None
+    fileName: Optional[str] = None
+
+
 class _Message(BaseModel):
     conversation:        Optional[str] = None
     extendedTextMessage: Optional[_TextMessage] = None
+    imageMessage:        Optional[_MediaMessage] = None
+    videoMessage:        Optional[_MediaMessage] = None
+    audioMessage:        Optional[_MediaMessage] = None
+    documentMessage:     Optional[_MediaMessage] = None
 
 
 class _EventData(BaseModel):
@@ -75,6 +85,19 @@ def _extract_text(msg: Optional[_Message]) -> Optional[str]:
         return msg.conversation.strip()
     if msg.extendedTextMessage and msg.extendedTextMessage.text:
         return msg.extendedTextMessage.text.strip()
+    for media_type, media_message in (
+        ("image", msg.imageMessage),
+        ("video", msg.videoMessage),
+        ("audio", msg.audioMessage),
+        ("document", msg.documentMessage),
+    ):
+        if not media_message:
+            continue
+        if media_message.caption:
+            return media_message.caption.strip()
+        if media_message.fileName:
+            return f"[{media_type.title()}: {media_message.fileName}]"
+        return f"[{media_type.title()} message]"
     return None
 
 

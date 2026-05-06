@@ -8,10 +8,21 @@ export class MessageRepository {
   public async saveRawMessage(message: any): Promise<void> {
     rawMessages.unshift(message);
     try {
-      await pool.query(
-        "INSERT INTO raw_messages (text, sender, group_name, category, priority, is_complaint, confidence, timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
-        [message.text, message.sender, message.group_name, message.category, message.priority, message.is_complaint, message.confidence, message.timestamp]
+      const result = await pool.query(
+        "INSERT INTO raw_messages (text, sender, group_name, category, priority, is_complaint, confidence, media, timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id",
+        [
+          message.text,
+          message.sender,
+          message.group_name,
+          message.category,
+          message.priority,
+          message.is_complaint,
+          message.confidence,
+          message.media ? JSON.stringify(message.media) : null,
+          message.timestamp,
+        ]
       );
+      message.id = result.rows[0]?.id ?? message.id;
     } catch (err) {
       console.error("Failed to save message to DB", err);
     }
@@ -58,6 +69,7 @@ export class MessageRepository {
         priority: r.priority,
         is_complaint: r.is_complaint,
         confidence: r.confidence,
+        media: r.media ?? null,
         timestamp: r.timestamp.toISOString()
       })));
     } catch (err) {

@@ -125,7 +125,31 @@ export interface RawMessage {
   priority?: string | null;
   is_complaint?: boolean | null;
   confidence?: string | null;
+  media?: RawMessageMedia | null;
   timestamp: string;
+}
+
+export type RawMessageMediaType =
+  (typeof RawMessageMediaType)[keyof typeof RawMessageMediaType];
+
+export const RawMessageMediaType = {
+  image: "image",
+  video: "video",
+  audio: "audio",
+  document: "document",
+  sticker: "sticker",
+  unknown: "unknown",
+} as const;
+
+export interface RawMessageMedia {
+  type: RawMessageMediaType;
+  mimetype?: string | null;
+  file_name?: string | null;
+  caption?: string | null;
+  url?: string | null;
+  data_url?: string | null;
+  seconds?: number | null;
+  file_size?: number | null;
 }
 
 export interface TrackedContactInput {

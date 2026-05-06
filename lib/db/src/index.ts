@@ -58,8 +58,11 @@ export async function runMigrations(): Promise<void> {
       priority      TEXT,
       is_complaint  BOOLEAN,
       confidence    TEXT,
+      media         JSONB,
       timestamp     TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+
+    ALTER TABLE raw_messages ADD COLUMN IF NOT EXISTS media JSONB;
 
     CREATE TABLE IF NOT EXISTS whatsapp_groups (
       id            SERIAL PRIMARY KEY,

@@ -262,6 +262,18 @@ export const ListMessagesResponseItem = zod.object({
   priority: zod.string().nullish(),
   is_complaint: zod.boolean().nullish(),
   confidence: zod.string().nullish(),
+  media: zod
+    .object({
+      type: zod.enum(["image", "video", "audio", "document", "sticker", "unknown"]),
+      mimetype: zod.string().nullish(),
+      file_name: zod.string().nullish(),
+      caption: zod.string().nullish(),
+      url: zod.string().nullish(),
+      data_url: zod.string().nullish(),
+      seconds: zod.number().nullish(),
+      file_size: zod.number().nullish(),
+    })
+    .nullish(),
   timestamp: zod.string(),
 });
 export const ListMessagesResponse = zod.array(ListMessagesResponseItem);

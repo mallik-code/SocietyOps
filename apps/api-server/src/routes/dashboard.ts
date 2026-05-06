@@ -23,6 +23,17 @@ export type Ticket = {
 };
 
 // Initialized to empty — populated from DB on startup in src/index.ts
+export type RawMessageMedia = {
+  type: "image" | "video" | "audio" | "document" | "sticker" | "unknown";
+  mimetype: string | null;
+  file_name: string | null;
+  caption: string | null;
+  url: string | null;
+  data_url: string | null;
+  seconds: number | null;
+  file_size: number | null;
+};
+
 export const tickets: Ticket[] = [];
 
 // Initialized to empty — populated from DB on startup in src/index.ts
@@ -35,6 +46,7 @@ export const rawMessages: Array<{
   priority: string | null;
   is_complaint: boolean | null;
   confidence: string | null;
+  media: RawMessageMedia | null;
   timestamp: string;
 }> = [];
 

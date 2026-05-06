@@ -1,8 +1,9 @@
 import { Fragment, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { MessageSquare, RefreshCw, Wand2, Search, Trash2 } from "lucide-react";
+import { Download, FileText, ImageIcon, MessageSquare, Mic, RefreshCw, Search, Trash2, Video, Wand2 } from "lucide-react";
 import {
   getListMessagesQueryKey,
+  type RawMessageMedia,
   useClassifyMessages,
   useDeleteMessage,
   useListMessages,
@@ -60,7 +61,10 @@ export function MessagesPage({ isDark }: MessagesPageProps) {
         msg.text.toLowerCase().includes(needle) ||
         msg.sender.toLowerCase().includes(needle) ||
         (msg.group_name ?? "").toLowerCase().includes(needle) ||
-        (msg.category ?? "").toLowerCase().includes(needle)
+        (msg.category ?? "").toLowerCase().includes(needle) ||
+        (msg.media?.file_name ?? "").toLowerCase().includes(needle) ||
+        (msg.media?.caption ?? "").toLowerCase().includes(needle) ||
+        (msg.media?.type ?? "").toLowerCase().includes(needle)
       );
     });
   }, [messages, search]);
@@ -128,6 +132,8 @@ export function MessagesPage({ isDark }: MessagesPageProps) {
                 </div>
 
                 <div className="px-4 py-4">
+                  {msg.media && <MediaPreview media={msg.media} />}
+
                   <div className="rounded-md border border-border bg-background px-4 py-3 text-[15px] leading-7 text-foreground whitespace-pre-wrap break-words">
                     <FormattedWhatsAppText text={msg.text} />
                   </div>
@@ -172,6 +178,112 @@ export function MessagesPage({ isDark }: MessagesPageProps) {
       </div>
     </div>
   );
+}
+
+function MediaPreview({ media }: { media: RawMessageMedia }) {
+  const source = getRenderableMediaSource(media);
+  const label = media.file_name || media.caption || `${media.type} message`;
+
+  return (
+    <div className="mb-3 overflow-hidden rounded-md border border-border bg-background">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-muted/30 px-3 py-2">
+        <div className="min-w-0 flex items-center gap-2">
+          <MediaIcon type={media.type} />
+          <div className="min-w-0">
+            <div className="truncate text-sm font-medium text-foreground">{label}</div>
+            <div className="text-xs text-muted-foreground">
+              {formatMediaMeta(media)}
+            </div>
+          </div>
+        </div>
+
+        {source && (
+          <a
+            href={source}
+            target="_blank"
+            rel="noreferrer"
+            download={media.file_name ?? undefined}
+            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Open
+          </a>
+        )}
+      </div>
+
+      {source ? (
+        <div className="bg-muted/10 p-3">
+          {media.type === "image" || media.type === "sticker" ? (
+            <img
+              src={source}
+              alt={label}
+              className="max-h-[420px] w-auto max-w-full rounded-md border border-border object-contain"
+            />
+          ) : media.type === "video" ? (
+            <video
+              src={source}
+              controls
+              className="max-h-[420px] w-full rounded-md border border-border bg-black"
+            />
+          ) : media.type === "audio" ? (
+            <audio src={source} controls className="w-full" />
+          ) : (
+            <a
+              href={source}
+              target="_blank"
+              rel="noreferrer"
+              download={media.file_name ?? undefined}
+              className="inline-flex items-center gap-2 text-sm font-medium text-primary underline underline-offset-2 hover:text-primary/80"
+            >
+              <FileText className="h-4 w-4" />
+              {label}
+            </a>
+          )}
+        </div>
+      ) : (
+        <div className="px-3 py-3 text-sm text-muted-foreground">
+          Media metadata received, but this older message does not include renderable base64 content.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function getRenderableMediaSource(media: RawMessageMedia) {
+  if (media.data_url) return media.data_url;
+  if (!media.url) return "";
+  if (/\.enc(?:\?|$)/i.test(media.url)) return "";
+
+  return media.url;
+}
+
+function MediaIcon({ type }: { type: RawMessageMedia["type"] }) {
+  const className = "h-4 w-4 shrink-0 text-muted-foreground";
+
+  if (type === "image" || type === "sticker") return <ImageIcon className={className} />;
+  if (type === "video") return <Video className={className} />;
+  if (type === "audio") return <Mic className={className} />;
+  return <FileText className={className} />;
+}
+
+function formatMediaMeta(media: RawMessageMedia) {
+  const parts = [
+    media.type,
+    media.mimetype,
+    media.seconds ? `${media.seconds}s` : null,
+    media.file_size ? formatBytes(media.file_size) : null,
+  ].filter(Boolean);
+
+  return parts.join(" | ");
+}
+
+function formatBytes(bytes: number) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "";
+  const units = ["B", "KB", "MB", "GB"];
+  const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  const value = bytes / 1024 ** index;
+
+  return `${value.toFixed(value >= 10 || index === 0 ? 0 : 1)} ${units[index]}`;
 }
 
 function FormattedWhatsAppText({ text }: { text: string }) {

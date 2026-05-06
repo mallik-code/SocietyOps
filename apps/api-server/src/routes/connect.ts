@@ -39,9 +39,18 @@ export async function ensureInstanceExists(): Promise<void> {
   const webhookConfig = {
     url: webhookUrl,
     enabled: true,
-    webhook_by_events: true,
-    webhook_base64: false,
+    webhook_by_events: false,
+    // Required for media previews in the dashboard. Raw WhatsApp CDN URLs can be
+    // encrypted or expire quickly, so the UI needs Evolution's base64 payload.
+    webhook_base64: true,
     events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE"],
+  };
+  const evolutionWebhookConfig = {
+    ...webhookConfig,
+    webhookByEvents: webhookConfig.webhook_by_events,
+    webhookBase64: webhookConfig.webhook_base64,
+    byEvents: webhookConfig.webhook_by_events,
+    base64: webhookConfig.webhook_base64,
   };
 
   if (Array.isArray(instances) && instances.length > 0) {
@@ -50,9 +59,7 @@ export async function ensureInstanceExists(): Promise<void> {
     const wr = await fetch(`${EVOLUTION_URL}/webhook/set/${EVOLUTION_INSTANCE}`, {
       method: "POST",
       headers: evolutionHeaders(),
-      body: JSON.stringify({
-        webhook: webhookConfig
-      }),
+      body: JSON.stringify({ webhook: evolutionWebhookConfig }),
     });
     if (wr.ok) {
       console.log(`Webhook successfully synced for ${EVOLUTION_INSTANCE}`);
@@ -71,6 +78,7 @@ export async function ensureInstanceExists(): Promise<void> {
       instanceName: EVOLUTION_INSTANCE,
       qrcode: true,
       integration: "WHATSAPP-BAILEYS",
+      webhook: evolutionWebhookConfig,
       webhook_evolution: webhookConfig,
     }),
   });
