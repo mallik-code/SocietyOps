@@ -61,7 +61,10 @@ services:
 
   # ── Evolution API — self-hosted WhatsApp gateway ──────────────────────────
   evolution:
-    image: atendai/evolution-api:latest
+    build:
+      context: .
+      dockerfile: docker/evolution/Dockerfile
+    image: societyops-evolution:v2.2.3-no-init-queries
     container_name: complaint_evolution
     restart: unless-stopped
     depends_on:
@@ -124,8 +127,8 @@ services:
       CACHE_REDIS_ENABLED: "false"
       CACHE_LOCAL_ENABLED: "true"
 
-      # ── WhatsApp Web client version (override stale baked-in default) ─────
-      CONFIG_SESSION_PHONE_VERSION: "2.3000.1035194821"
+      # ── WhatsApp Web client version. Refresh when WhatsApp expires the current web build.
+      CONFIG_SESSION_PHONE_VERSION: "2.3000.1038682711"
 
       # ── Logging ───────────────────────────────────────────────────────────
       LOG_LEVEL: INFO
