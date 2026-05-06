@@ -1,15 +1,15 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import text, select
+from sqlalchemy import text, select, Text, Integer, String
 from typing import List, Dict, Any, Optional
 from app.models import KnowledgeItem
 
 HYBRID_SEARCH_QUERY = """
 WITH vector_search AS (
     SELECT id, 
-           1 - (embedding <=> :embedding::vector) AS rank_score,
-           ROW_NUMBER() OVER (ORDER BY embedding <=> :embedding::vector) AS rank
+           1 - (embedding <=> :embedding) AS rank_score,
+           ROW_NUMBER() OVER (ORDER BY embedding <=> :embedding) AS rank
     FROM knowledge_items
-    WHERE (NULLIF(:collection_id, '')::text IS NULL OR collection_id = :collection_id)
+    WHERE (NULLIF(:collection_id, '') IS NULL OR collection_id = :collection_id)
     LIMIT 50
 ),
 keyword_search AS (
@@ -18,7 +18,7 @@ keyword_search AS (
            ROW_NUMBER() OVER (ORDER BY ts_rank_cd(to_tsvector('english', content), plainto_tsquery('english', :query)) DESC) AS rank
     FROM knowledge_items
     WHERE to_tsvector('english', content) @@ plainto_tsquery('english', :query)
-    AND (NULLIF(:collection_id, '')::text IS NULL OR collection_id = :collection_id)
+    AND (NULLIF(:collection_id, '') IS NULL OR collection_id = :collection_id)
     LIMIT 50
 )
 SELECT k.id, k.content, k.category, k.collection_id, k.document_id, k.source_name, k.page_number, k.created_at, k.metadata_json,
@@ -65,14 +65,25 @@ class KnowledgeRepository:
         return item
 
     async def hybrid_search(self, query: str, embedding: List[float], limit: int, collection_id: str = None) -> List[Dict[str, Any]]:
+        from sqlalchemy import bindparam
+        from pgvector.sqlalchemy import Vector
+        
         print(f"Executing hybrid search for: '{query}' in collection: {collection_id}")
+        
+        stmt = text(HYBRID_SEARCH_QUERY).bindparams(
+            bindparam("embedding", type_=Vector(768)),
+            bindparam("query", type_=Text),
+            bindparam("limit", type_=Integer),
+            bindparam("collection_id", type_=String)
+        )
+        
         result = await self.session.execute(
-            text(HYBRID_SEARCH_QUERY),
+            stmt,
             {
-                "embedding": str(embedding),
+                "embedding": embedding,
                 "query": query,
                 "limit": limit,
-                "collection_id": collection_id
+                "collection_id": collection_id or ""
             }
         )
         items = result.mappings().all()

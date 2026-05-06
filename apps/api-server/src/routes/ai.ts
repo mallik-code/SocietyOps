@@ -144,25 +144,42 @@ ${contactRows}
   };
 }
 
-async function buildResearchContext(query: string, collectionId: string): Promise<{ context: string; sources: any[] }> {
+async function buildResearchContext(query: string, collection_id: string): Promise<{ context: string; sources: any[] }> {
   try {
-    const response = await fetch(`${KNOWLEDGE_SERVICE_URL}/search?query=${encodeURIComponent(query)}&limit=10&collection_id=${collectionId}`);
-    if (!response.ok) throw new Error("Failed to fetch from knowledge service");
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+
+    const response = await fetch(
+      `${KNOWLEDGE_SERVICE_URL}/search?query=${encodeURIComponent(query)}&limit=10&collection_id=${collection_id}`,
+      { signal: controller.signal }
+    );
+    
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Knowledge service error (${response.status}): ${errorText}`);
+    }
+    
     const results = await response.json();
-    console.log(`Research context for "${query}" in ${collectionId}: ${results.length} results found`);
+    console.log(`Research context for "${query}" in ${collection_id}: ${results.length} results found`);
     
     if (results.length === 0) {
       console.warn(`No research results found for query: ${query}`);
     }
 
-    const context = `=== RESEARCH DOCUMENTS CONTEXT (Notebook: ${collectionId}) ===\n\n` + 
+    const context = `=== RESEARCH DOCUMENTS CONTEXT (Notebook: ${collection_id}) ===\n\n` + 
       results.map((r: any, i: number) => `[Source ${i+1}: ${r.source_name}, p.${r.page_number}]: ${r.content}`).join("\n\n") +
       "\n\n=== END OF RESEARCH CONTEXT ===";
     
     return { context, sources: results };
-  } catch (err) {
-    console.error("Error building research context:", err);
-    return { context: "No relevant documents found for this query.", sources: [] };
+  } catch (err: any) {
+    if (err.name === 'AbortError') {
+      console.error("Knowledge service request timed out after 30s");
+    } else {
+      console.error("Error building research context:", err);
+    }
+    return { context: "The knowledge search timed out or failed. Proceeding with general knowledge.", sources: [] };
   }
 }
 

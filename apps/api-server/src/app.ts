@@ -31,17 +31,29 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
 
+// 404 handler
+app.use((req: express.Request, res: express.Response) => {
+  logger.warn({ url: req.url }, "Route not found");
+  res.status(404).json({
+    error: "Not Found",
+    message: `The requested path ${req.path} does not exist.`
+  });
+});
+
 // Global error handler
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  logger.error({ err }, "Unhandled application error");
+  const errorId = Math.random().toString(36).substring(7);
+  logger.error({ err, errorId, url: req.url, method: req.method }, "Unhandled application error");
   
   if (res.headersSent) {
     return next(err);
   }
 
-  res.status(500).json({
-    error: "Internal Server Error",
-    message: process.env.NODE_ENV === "development" ? err.message : "An unexpected error occurred"
+  const statusCode = err.status || err.statusCode || 500;
+  res.status(statusCode).json({
+    error: statusCode === 500 ? "Internal Server Error" : "Request Error",
+    message: process.env.NODE_ENV === "development" ? err.message : "An unexpected error occurred",
+    errorId: process.env.NODE_ENV === "development" ? undefined : errorId
   });
 });
 
