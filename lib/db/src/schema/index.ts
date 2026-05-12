@@ -6,3 +6,4 @@ export * from "./leave_records";
 export * from "./message_log";
 export * from "./holidays";
 export * from "./llm_settings";
+export * from "./teams_channels";

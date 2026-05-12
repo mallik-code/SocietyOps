@@ -126,6 +126,16 @@ export async function runMigrations(): Promise<void> {
       api_key    TEXT,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+
+    CREATE TABLE IF NOT EXISTS teams_channels (
+      id            SERIAL PRIMARY KEY,
+      name          TEXT NOT NULL,
+      channel_id    TEXT NOT NULL UNIQUE,
+      description   TEXT,
+      agent_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      message_count INTEGER NOT NULL DEFAULT 0,
+      created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
   `);
 }
 

@@ -11,6 +11,7 @@ import { LeaveRecords } from "@/pages/LeaveRecords";
 import { EmployeeDirectory } from "@/pages/EmployeeDirectory";
 import { Settings } from "@/pages/Settings";
 import { Reports } from "@/pages/Reports";
+import { Channels } from "@/pages/Channels";
 
 const queryClient = new QueryClient();
 
@@ -22,6 +23,7 @@ function Router() {
         <Route path="/simulator" component={Simulator} />
         <Route path="/leave" component={LeaveRecords} />
         <Route path="/employees" component={EmployeeDirectory} />
+        <Route path="/channels" component={Channels} />
         <Route path="/reports" component={Reports} />
         <Route path="/settings" component={Settings} />
         <Route component={NotFound} />

@@ -1,99 +1,70 @@
 import { Router, type IRouter } from "express";
-import { db, employeesTable, messageLogTable, leaveRecordsTable, holidaysTable, llmSettingsTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { db, employeesTable, messageLogTable, leaveRecordsTable, holidaysTable, llmSettingsTable, teamsChannelsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
 async function getLlmSettings() {
   const rows = await db.select().from(llmSettingsTable).limit(1);
-  if (rows.length === 0) {
-    return { provider: "openai", model: "gpt-4o-mini", apiKey: null };
-  }
+  if (rows.length === 0) return { provider: "openai", model: "gpt-4o-mini", apiKey: null };
   return rows[0];
 }
 
 async function callLlm(prompt: string, settings: { provider: string; model: string; apiKey: string | null }): Promise<string> {
   const { provider, model, apiKey } = settings;
   const key = apiKey || process.env[`${provider.toUpperCase()}_API_KEY`] || "";
-
-  if (!key) {
-    throw new Error(`No API key configured for provider: ${provider}`);
-  }
+  if (!key) throw new Error(`No API key configured for provider: ${provider}`);
 
   if (provider === "openai") {
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.1,
-      }),
+      body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], temperature: 0.1 }),
     });
     const data = await res.json() as any;
     if (!res.ok) throw new Error(data.error?.message || "OpenAI API error");
     return data.choices[0].message.content;
   }
-
   if (provider === "anthropic") {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": key,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model,
-        max_tokens: 1024,
-        messages: [{ role: "user", content: prompt }],
-      }),
+      headers: { "Content-Type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
+      body: JSON.stringify({ model, max_tokens: 1024, messages: [{ role: "user", content: prompt }] }),
     });
     const data = await res.json() as any;
     if (!res.ok) throw new Error(data.error?.message || "Anthropic API error");
     return data.content[0].text;
   }
-
   if (provider === "groq") {
     const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.1,
-      }),
+      body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], temperature: 0.1 }),
     });
     const data = await res.json() as any;
     if (!res.ok) throw new Error(data.error?.message || "Groq API error");
     return data.choices[0].message.content;
   }
-
   if (provider === "gemini") {
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.1 },
-        }),
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.1 } }),
       }
     );
     const data = await res.json() as any;
     if (!res.ok) throw new Error(data.error?.message || "Gemini API error");
     return data.candidates[0].content.parts[0].text;
   }
-
   throw new Error(`Unsupported provider: ${provider}`);
 }
 
 function buildLeavePrompt(message: string, employees: any[], today: string, holidays: any[]): string {
   const employeeList = employees.map(e => `- ID:${e.id} | ${e.fullName} | ${e.department} | ${e.role} | Manager:${e.managerId || "none"}`).join("\n");
   const holidayList = holidays.map(h => `- ${h.date}: ${h.name}`).join("\n");
-
   return `You are an AI Leave Management Agent that monitors Microsoft Teams messages.
 
 Today's date: ${today}
@@ -145,12 +116,76 @@ RULES:
 9. For "tomorrow", use the next calendar day after today`;
 }
 
+async function getOrCreateChannel(channelId: string): Promise<{ agentEnabled: boolean }> {
+  const existing = await db.select().from(teamsChannelsTable)
+    .where(eq(teamsChannelsTable.channelId, channelId))
+    .limit(1);
+
+  if (existing.length > 0) {
+    return { agentEnabled: existing[0].agentEnabled };
+  }
+
+  const [created] = await db.insert(teamsChannelsTable).values({
+    name: channelId,
+    channelId,
+    agentEnabled: true,
+  }).returning();
+
+  return { agentEnabled: created.agentEnabled };
+}
+
+async function incrementChannelMessageCount(channelId: string) {
+  const rows = await db.select().from(teamsChannelsTable)
+    .where(eq(teamsChannelsTable.channelId, channelId))
+    .limit(1);
+  if (rows.length > 0) {
+    await db.update(teamsChannelsTable)
+      .set({ messageCount: rows[0].messageCount + 1 })
+      .where(eq(teamsChannelsTable.id, rows[0].id));
+  }
+}
+
 async function processMessage(message: string, senderId: number, channel: string | null) {
   const employees = await db.select().from(employeesTable);
-  const holidays = await db.select().from(holidaysTable);
   const settings = await getLlmSettings();
   const today = new Date().toISOString().split("T")[0];
 
+  let agentEnabled = true;
+  if (channel) {
+    const ch = await getOrCreateChannel(channel);
+    agentEnabled = ch.agentEnabled;
+    await incrementChannelMessageCount(channel);
+  }
+
+  if (!agentEnabled) {
+    const [logEntry] = await db.insert(messageLogTable).values({
+      messageText: message,
+      senderId,
+      channel,
+      intent: "not_processed",
+      confidence: 0,
+      actionTaken: "agent_disabled",
+      clarificationQuestion: null,
+      agentOutput: { reason: "AI agent is disabled for this channel" },
+    }).returning();
+
+    const senderEmployee = employees.find(e => e.id === senderId);
+    return {
+      id: logEntry.id,
+      message_text: message,
+      sender_id: senderId,
+      sender_name: senderEmployee?.fullName || "Unknown",
+      channel,
+      intent: "not_processed",
+      confidence: 0,
+      agent_output: { reason: "AI agent is disabled for this channel" },
+      action_taken: "agent_disabled",
+      clarification_question: null,
+      created_at: logEntry.createdAt,
+    };
+  }
+
+  const holidays = await db.select().from(holidaysTable);
   const prompt = buildLeavePrompt(message, employees, today, holidays);
   let agentOutput: any;
 
@@ -248,7 +283,6 @@ router.post("/teams/webhook", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid Teams webhook payload" });
     return;
   }
-
   const employees = await db.select().from(employeesTable);
   const sender = employees.find(e => e.teamsUserId === from.id);
   if (!sender) {
@@ -256,7 +290,6 @@ router.post("/teams/webhook", async (req, res): Promise<void> => {
     res.json({ success: true, message: "User not found in system" });
     return;
   }
-
   await processMessage(text, sender.id, null);
   res.json({ success: true, message: "Message processed" });
 });
@@ -264,7 +297,6 @@ router.post("/teams/webhook", async (req, res): Promise<void> => {
 router.get("/teams/message-log", async (req, res): Promise<void> => {
   const logs = await db.select().from(messageLogTable).orderBy(messageLogTable.createdAt);
   const employees = await db.select().from(employeesTable);
-
   const result = logs.map(log => {
     const sender = employees.find(e => e.id === log.senderId);
     return {
@@ -281,8 +313,94 @@ router.get("/teams/message-log", async (req, res): Promise<void> => {
       created_at: log.createdAt,
     };
   });
-
   res.json(result);
+});
+
+router.get("/teams/channels", async (req, res): Promise<void> => {
+  const channels = await db.select().from(teamsChannelsTable)
+    .orderBy(teamsChannelsTable.createdAt);
+  res.json(channels.map(c => ({
+    id: c.id,
+    name: c.name,
+    channel_id: c.channelId,
+    description: c.description,
+    agent_enabled: c.agentEnabled,
+    message_count: c.messageCount,
+    created_at: c.createdAt,
+  })));
+});
+
+router.post("/teams/channels", async (req, res): Promise<void> => {
+  const { name, channel_id, description } = req.body;
+  if (!name || !channel_id) {
+    res.status(400).json({ error: "name and channel_id are required" });
+    return;
+  }
+  try {
+    const [created] = await db.insert(teamsChannelsTable).values({
+      name,
+      channelId: channel_id,
+      description: description || null,
+      agentEnabled: true,
+    }).returning();
+    res.status(201).json({
+      id: created.id,
+      name: created.name,
+      channel_id: created.channelId,
+      description: created.description,
+      agent_enabled: created.agentEnabled,
+      message_count: created.messageCount,
+      created_at: created.createdAt,
+    });
+  } catch (err: any) {
+    if (err.code === "23505") {
+      res.status(409).json({ error: "A channel with that ID already exists" });
+    } else {
+      throw err;
+    }
+  }
+});
+
+router.patch("/teams/channels/:id", async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  const { agent_enabled, name, description } = req.body;
+  const updates: Record<string, any> = {};
+  if (typeof agent_enabled === "boolean") updates.agentEnabled = agent_enabled;
+  if (typeof name === "string") updates.name = name;
+  if (typeof description === "string") updates.description = description;
+  if (Object.keys(updates).length === 0) {
+    res.status(400).json({ error: "No valid fields to update" });
+    return;
+  }
+  const [updated] = await db.update(teamsChannelsTable)
+    .set(updates)
+    .where(eq(teamsChannelsTable.id, id))
+    .returning();
+  if (!updated) {
+    res.status(404).json({ error: "Channel not found" });
+    return;
+  }
+  res.json({
+    id: updated.id,
+    name: updated.name,
+    channel_id: updated.channelId,
+    description: updated.description,
+    agent_enabled: updated.agentEnabled,
+    message_count: updated.messageCount,
+    created_at: updated.createdAt,
+  });
+});
+
+router.delete("/teams/channels/:id", async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  const [deleted] = await db.delete(teamsChannelsTable)
+    .where(eq(teamsChannelsTable.id, id))
+    .returning();
+  if (!deleted) {
+    res.status(404).json({ error: "Channel not found" });
+    return;
+  }
+  res.json({ success: true });
 });
 
 export default router;
