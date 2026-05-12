@@ -1,0 +1,14 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "DMISAF-yjZArK0WlUUur5"
+uri = "file://requirements.md"
+type = "text"
+title = "requirements.md"
+
+[[outputs]]
+id = "b-NAjGDjEqjtuHYr40Y1A"
+uri = "file://design.md"
+type = "text"
+title = "design.md"
