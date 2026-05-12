@@ -70,6 +70,60 @@ export async function runMigrations(): Promise<void> {
       name          TEXT NOT NULL,
       updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+
+    CREATE TABLE IF NOT EXISTS employees (
+      id            SERIAL PRIMARY KEY,
+      full_name     TEXT NOT NULL,
+      first_name    TEXT NOT NULL,
+      last_name     TEXT NOT NULL,
+      department    TEXT NOT NULL,
+      role          TEXT NOT NULL,
+      manager_id    INTEGER,
+      teams_user_id TEXT NOT NULL UNIQUE,
+      email         TEXT NOT NULL UNIQUE,
+      created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS leave_records (
+      id              SERIAL PRIMARY KEY,
+      employee_id     INTEGER NOT NULL,
+      leave_date      DATE NOT NULL,
+      leave_type      TEXT NOT NULL DEFAULT 'full_day',
+      status          TEXT NOT NULL DEFAULT 'approved',
+      approved_by_id  INTEGER,
+      source_message  TEXT,
+      message_log_id  INTEGER,
+      created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS message_log (
+      id                     SERIAL PRIMARY KEY,
+      message_text           TEXT NOT NULL,
+      sender_id              INTEGER NOT NULL,
+      channel                TEXT,
+      intent                 TEXT NOT NULL DEFAULT 'unknown',
+      confidence             REAL NOT NULL DEFAULT 0,
+      action_taken           TEXT NOT NULL DEFAULT 'ignored',
+      clarification_question TEXT,
+      agent_output           JSONB,
+      created_at             TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS holidays (
+      id    SERIAL PRIMARY KEY,
+      date  DATE NOT NULL UNIQUE,
+      name  TEXT NOT NULL,
+      type  TEXT NOT NULL DEFAULT 'public'
+    );
+
+    CREATE TABLE IF NOT EXISTS llm_settings (
+      id         SERIAL PRIMARY KEY,
+      provider   TEXT NOT NULL DEFAULT 'openai',
+      model      TEXT NOT NULL DEFAULT 'gpt-4o-mini',
+      api_key    TEXT,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
   `);
 }
 

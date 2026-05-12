@@ -1,7 +1,14 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { conversations, messages, insertConversationSchema, insertMessageSchema } from "@workspace/db/schema";
-import { openai } from "@workspace/integrations-openai-ai-server";
+let openai: any = null;
+async function getOpenAI() {
+  if (!openai) {
+    const mod = await import("@workspace/integrations-openai-ai-server");
+    openai = mod.openai;
+  }
+  return openai;
+}
 import { eq, asc, desc } from "drizzle-orm";
 import { ticketRepository } from "../repositories/ticket.repository";
 import { trackedGroups, trackedContacts } from "./policies.js";
@@ -332,7 +339,8 @@ router.post("/ai/chat", async (req, res) => {
     let fullResponse = "";
 
     const model = process.env.AI_MODEL ?? "llama-3.3-70b-versatile";
-    const stream = await openai.chat.completions.create({
+    const openaiClient = await getOpenAI();
+    const stream = await openaiClient.chat.completions.create({
       model,
       max_completion_tokens: 8192,
       messages: chatMessages,

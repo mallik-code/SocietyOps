@@ -8,6 +8,10 @@ import adminRouter from "./admin";
 import webhookRouter from "./webhook";
 import knowledgeRouter from "./knowledge";
 import researchRouter from "./research";
+import teamsRouter from "./teams";
+import leaveRouter from "./leave";
+import employeesLeaveRouter from "./employees_leave";
+import settingsLlmRouter from "./settings_llm";
 
 const router: IRouter = Router();
 
@@ -20,5 +24,9 @@ router.use(adminRouter);
 router.use(webhookRouter);
 router.use("/knowledge", knowledgeRouter);
 router.use("/research", researchRouter);
+router.use(teamsRouter);
+router.use(leaveRouter);
+router.use(employeesLeaveRouter);
+router.use(settingsLlmRouter);
 
 export default router;

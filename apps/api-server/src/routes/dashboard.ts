@@ -1,7 +1,4 @@
 import { Router, type IRouter } from "express";
-import {
-  GetWhatsappStatusResponse,
-} from "@workspace/api-zod";
 import { loadTickets, loadRawMessages } from "../lib/csv-loader";
 import { ticketController } from "../controllers/ticket.controller";
 import { messageRepository } from "../repositories/message.repository";

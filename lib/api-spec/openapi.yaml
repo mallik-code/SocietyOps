@@ -1,51 +1,26 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: WhatsApp Complaint Management Dashboard API
+  description: Teams AI Agent - Leave Management System API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
-  - name: dashboard
-    description: Dashboard summary and analytics
-  - name: tickets
-    description: Complaint tickets management
-  - name: connect
-    description: WhatsApp and Telegram channel connection
-  - name: ai
-    description: AI prompt interface
-  - name: admin
-    description: Test data management
+  - name: teams
+    description: Teams message simulation and webhook
+  - name: leave
+    description: Leave management records
+  - name: employees
+    description: Employee and manager data
+  - name: agent
+    description: AI agent processing
+  - name: settings
+    description: LLM provider configuration
 
 paths:
-  /admin/seed:
-    post:
-      operationId: importTestData
-      tags: [admin]
-      summary: Restore all test data to its initial state
-      responses:
-        "200":
-          description: Test data imported
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SuccessResponse"
-    delete:
-      operationId: clearTestData
-      tags: [admin]
-      summary: Delete all test data (tickets, messages, groups, contacts)
-      responses:
-        "200":
-          description: Test data cleared
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SuccessResponse"
-
   /healthz:
     get:
       operationId: healthCheck
@@ -59,256 +34,136 @@ paths:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
 
-  /dashboard/stats:
-    get:
-      operationId: getDashboardStats
-      tags: [dashboard]
-      summary: Get high-level stats for the dashboard overview
+  /teams/simulate:
+    post:
+      operationId: simulateTeamsMessage
+      tags: [teams]
+      summary: Simulate a Teams message being sent to the agent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeamsMessageInput"
       responses:
         "200":
-          description: Dashboard statistics
+          description: Agent processing result
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/DashboardStats"
+                $ref: "#/components/schemas/AgentResult"
 
-  /dashboard/categories:
-    get:
-      operationId: getCategoryBreakdown
-      tags: [dashboard]
-      summary: Ticket count grouped by category
+  /teams/webhook:
+    post:
+      operationId: teamsWebhook
+      tags: [teams]
+      summary: Real Microsoft Teams webhook endpoint (for future integration)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeamsWebhookPayload"
       responses:
         "200":
-          description: Category breakdown
+          description: Webhook acknowledged
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/CategoryCount"
+                $ref: "#/components/schemas/SuccessResponse"
 
-  /dashboard/priorities:
+  /teams/message-log:
     get:
-      operationId: getPriorityBreakdown
-      tags: [dashboard]
-      summary: Ticket count grouped by priority
+      operationId: listMessageLog
+      tags: [teams]
+      summary: Get all processed Teams messages
       responses:
         "200":
-          description: Priority breakdown
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/PriorityCount"
-
-  /dashboard/trend:
-    get:
-      operationId: getDailyTrend
-      tags: [dashboard]
-      summary: Tickets created per day for the last 14 days
-      responses:
-        "200":
-          description: Daily ticket trend
+          description: List of processed messages
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/DailyCount"
+                  $ref: "#/components/schemas/ProcessedMessage"
 
-  /dashboard/status-breakdown:
+  /leave:
     get:
-      operationId: getStatusBreakdown
-      tags: [dashboard]
-      summary: Ticket count grouped by status
-      responses:
-        "200":
-          description: Status breakdown
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/StatusCount"
-
-  /dashboard/whatsapp-status:
-    get:
-      operationId: getWhatsappStatus
-      tags: [dashboard]
-      summary: WhatsApp gateway connection status
-      responses:
-        "200":
-          description: WhatsApp connection state
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/WhatsappStatus"
-
-  /dashboard/recent-activity:
-    get:
-      operationId: getRecentActivity
-      tags: [dashboard]
-      summary: Last 5 ticket events (created or status changed)
-      responses:
-        "200":
-          description: Recent activity feed
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/ActivityItem"
-
-  /tickets:
-    get:
-      operationId: listTickets
-      tags: [tickets]
-      summary: List all tickets with optional filters
+      operationId: listLeaveRecords
+      tags: [leave]
+      summary: List all leave records
       parameters:
+        - name: employee_id
+          in: query
+          required: false
+          schema:
+            type: integer
         - name: status
           in: query
           required: false
           schema:
             type: string
-        - name: priority
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: category
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: limit
-          in: query
-          required: false
-          schema:
-            type: integer
-            default: 50
       responses:
         "200":
-          description: List of tickets
+          description: List of leave records
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/Ticket"
-
-  /tickets/{id}:
-    get:
-      operationId: getTicket
-      tags: [tickets]
-      summary: Get a single ticket by ID
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        "200":
-          description: Ticket details
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Ticket"
-        "404":
-          description: Ticket not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /tickets/{id}/status:
-    patch:
-      operationId: updateTicketStatus
-      tags: [tickets]
-      summary: Update the status of a ticket
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/TicketStatusUpdate"
-      responses:
-        "200":
-          description: Updated ticket
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Ticket"
-        "404":
-          description: Ticket not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /ai/chat:
+                  $ref: "#/components/schemas/LeaveRecord"
     post:
-      operationId: aiChat
-      tags: [ai]
-      summary: Send a prompt and get an AI-streamed response (SSE)
+      operationId: createLeaveRecord
+      tags: [leave]
+      summary: Manually create a leave record
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/AiChatRequest"
-      responses:
-        "200":
-          description: SSE stream of text chunks
-          content:
-            text/event-stream:
-              schema:
-                type: string
-
-  /ai/conversations:
-    get:
-      operationId: listAiConversations
-      tags: [ai]
-      summary: List all AI conversations
-      responses:
-        "200":
-          description: List of conversations
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/AiConversation"
-    post:
-      operationId: createAiConversation
-      tags: [ai]
-      summary: Create a new AI conversation
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/AiConversationInput"
+              $ref: "#/components/schemas/LeaveRecordInput"
       responses:
         "201":
-          description: Created conversation
+          description: Created leave record
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AiConversation"
+                $ref: "#/components/schemas/LeaveRecord"
 
-  /ai/conversations/{id}:
+  /leave/{id}:
+    patch:
+      operationId: updateLeaveRecord
+      tags: [leave]
+      summary: Update a leave record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LeaveRecordUpdate"
+      responses:
+        "200":
+          description: Updated leave record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeaveRecord"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
     delete:
-      operationId: deleteAiConversation
-      tags: [ai]
-      summary: Delete a conversation and all its messages
+      operationId: deleteLeaveRecord
+      tags: [leave]
+      summary: Delete a leave record
       parameters:
         - name: id
           in: path
@@ -323,11 +178,39 @@ paths:
               schema:
                 $ref: "#/components/schemas/SuccessResponse"
 
-  /ai/conversations/{id}/messages:
+  /leave/stats:
     get:
-      operationId: listAiMessages
-      tags: [ai]
-      summary: Get all messages for a conversation
+      operationId: getLeaveStats
+      tags: [leave]
+      summary: Get leave statistics summary
+      responses:
+        "200":
+          description: Leave statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeaveStats"
+
+  /employees:
+    get:
+      operationId: listEmployees
+      tags: [employees]
+      summary: List all employees with manager relationships
+      responses:
+        "200":
+          description: List of employees
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Employee"
+
+  /employees/{id}:
+    get:
+      operationId: getEmployee
+      tags: [employees]
+      summary: Get employee by ID
       parameters:
         - name: id
           in: path
@@ -336,330 +219,75 @@ paths:
             type: integer
       responses:
         "200":
-          description: Messages
+          description: Employee details
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/AiMessage"
-
-  /dashboard/messages/classify:
-    post:
-      operationId: classifyMessages
-      tags: [dashboard]
-      summary: Classify all unclassified messages
-      responses:
-        "200":
-          description: Classifies unclassified messages
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SuccessResponse"
-
-  /dashboard/messages:
-    get:
-      operationId: listMessages
-      tags: [dashboard]
-      summary: Get all WhatsApp messages for classification
-      responses:
-        "200":
-          description: List of messages
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/RawMessage"
-
-  /connect/whatsapp/qr:
-    get:
-      operationId: getWhatsappQr
-      tags: [connect]
-      summary: Get WhatsApp QR code for pairing
-      responses:
-        "200":
-          description: QR code data URL and pairing status
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/WhatsappQrResponse"
-
-  /connect/whatsapp/chats:
-    get:
-      operationId: listWhatsappChats
-      tags: [connect]
-      summary: List all WhatsApp chats from the connected instance
-      responses:
-        "200":
-          description: List of chats (groups and contacts)
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/WhatsappChat"
-
-  /connect/whatsapp/status:
-    get:
-      operationId: getWhatsappConnectStatus
-      tags: [connect]
-      summary: Get detailed WhatsApp connection status
-      responses:
-        "200":
-          description: WhatsApp connection details
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/WhatsappConnectStatus"
-
-  /connect/whatsapp/logout:
-    post:
-      operationId: logoutWhatsapp
-      tags: [connect]
-      summary: Disconnect and logout WhatsApp instance
-      responses:
-        "200":
-          description: Logged out
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SuccessResponse"
-
-  /connect/telegram/status:
-    get:
-      operationId: getTelegramStatus
-      tags: [connect]
-      summary: Get Telegram bot connection status
-      responses:
-        "200":
-          description: Telegram bot status
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/TelegramStatus"
-
-  /connect/telegram:
-    post:
-      operationId: setupTelegram
-      tags: [connect]
-      summary: Configure Telegram bot token
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/TelegramSetupInput"
-      responses:
-        "200":
-          description: Telegram bot configured
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/TelegramStatus"
-        "400":
-          description: Invalid bot token
+                $ref: "#/components/schemas/Employee"
+        "404":
+          description: Not found
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /connect/telegram/qr:
+  /holidays:
     get:
-      operationId: getTelegramQr
-      tags: [connect]
-      summary: Get Telegram bot deep-link QR code
+      operationId: listHolidays
+      tags: [employees]
+      summary: List all holidays for the current year
       responses:
         "200":
-          description: Telegram QR code
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/TelegramQrResponse"
-
-  /policies/groups:
-    get:
-      operationId: listTrackedGroups
-      tags: [policies]
-      summary: List all tracked WhatsApp groups
-      responses:
-        "200":
-          description: Tracked groups
+          description: List of holidays
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/TrackedGroup"
-    post:
-      operationId: addTrackedGroup
-      tags: [policies]
-      summary: Add a WhatsApp group to track
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/TrackedGroupInput"
-      responses:
-        "201":
-          description: Group added
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/TrackedGroup"
-        "409":
-          description: Group already tracked
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                  $ref: "#/components/schemas/Holiday"
 
-  /policies/groups/{id}:
+  /settings/llm:
+    get:
+      operationId: getLlmSettings
+      tags: [settings]
+      summary: Get current LLM provider settings
+      responses:
+        "200":
+          description: Current LLM settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LlmSettings"
     patch:
-      operationId: updateTrackedGroup
-      tags: [policies]
-      summary: Enable or disable a tracked group
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
+      operationId: updateLlmSettings
+      tags: [settings]
+      summary: Update LLM provider and model
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/TrackedItemPatch"
+              $ref: "#/components/schemas/LlmSettingsUpdate"
       responses:
         "200":
-          description: Updated group
+          description: Updated settings
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/TrackedGroup"
-        "404":
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-    delete:
-      operationId: deleteTrackedGroup
-      tags: [policies]
-      summary: Remove a WhatsApp group from tracking
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        "200":
-          description: Deleted
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/DeletedResponse"
-        "404":
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/LlmSettings"
 
-  /policies/contacts:
-    get:
-      operationId: listTrackedContacts
-      tags: [policies]
-      summary: List all tracked individual contacts
-      responses:
-        "200":
-          description: Tracked contacts
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/TrackedContact"
+  /settings/llm/test:
     post:
-      operationId: addTrackedContact
-      tags: [policies]
-      summary: Add an individual contact to track
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/TrackedContactInput"
-      responses:
-        "201":
-          description: Contact added
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/TrackedContact"
-        "409":
-          description: Contact already tracked
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /policies/contacts/{id}:
-    patch:
-      operationId: updateTrackedContact
-      tags: [policies]
-      summary: Enable or disable a tracked contact
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/TrackedItemPatch"
+      operationId: testLlmConnection
+      tags: [settings]
+      summary: Test the configured LLM connection
       responses:
         "200":
-          description: Updated contact
+          description: Test result
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/TrackedContact"
-        "404":
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-    delete:
-      operationId: deleteTrackedContact
-      tags: [policies]
-      summary: Remove a contact from tracking
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        "200":
-          description: Deleted
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/DeletedResponse"
-        "404":
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/LlmTestResult"
 
 components:
   schemas:
@@ -670,435 +298,14 @@ components:
           type: string
       required: [status]
 
-    DashboardStats:
-      type: object
-      properties:
-        total_tickets:
-          type: integer
-        open_tickets:
-          type: integer
-        in_progress_tickets:
-          type: integer
-        resolved_today:
-          type: integer
-        high_priority_open:
-          type: integer
-        closed_tickets:
-          type: integer
-        messages_processed_today:
-          type: integer
-        avg_resolution_hours:
-          type: number
-      required:
-        - total_tickets
-        - open_tickets
-        - in_progress_tickets
-        - resolved_today
-        - high_priority_open
-        - closed_tickets
-        - messages_processed_today
-        - avg_resolution_hours
-
-    CategoryCount:
-      type: object
-      properties:
-        category:
-          type: string
-        count:
-          type: integer
-      required: [category, count]
-
-    PriorityCount:
-      type: object
-      properties:
-        priority:
-          type: string
-        count:
-          type: integer
-      required: [priority, count]
-
-    StatusCount:
-      type: object
-      properties:
-        status:
-          type: string
-        count:
-          type: integer
-      required: [status, count]
-
-    DailyCount:
-      type: object
-      properties:
-        date:
-          type: string
-          description: ISO date string YYYY-MM-DD
-        count:
-          type: integer
-      required: [date, count]
-
-    WhatsappStatus:
-      type: object
-      properties:
-        connected:
-          type: boolean
-        instance:
-          type: string
-        state:
-          type: string
-        api_url:
-          type: string
-      required: [connected, instance, state, api_url]
-
-    ActivityItem:
-      type: object
-      properties:
-        id:
-          type: integer
-        ticket_id:
-          type: integer
-        event:
-          type: string
-          description: "created | status_changed | supervisor_action"
-        description:
-          type: string
-        category:
-          type: string
-        priority:
-          type: string
-        status:
-          type: string
-        timestamp:
-          type: string
-      required: [id, ticket_id, event, description, category, priority, status, timestamp]
-
-    Ticket:
-      type: object
-      properties:
-        id:
-          type: integer
-        message_text:
-          type: string
-        category:
-          type: string
-        priority:
-          type: string
-        status:
-          type: string
-        location:
-          type: string
-          nullable: true
-        reporter_name:
-          type: string
-          nullable: true
-        group_name:
-          type: string
-          nullable: true
-        created_at:
-          type: string
-        updated_at:
-          type: string
-          nullable: true
-        confidence:
-          type: string
-          nullable: true
-      required:
-        - id
-        - message_text
-        - category
-        - priority
-        - status
-        - created_at
-
-    TicketStatusUpdate:
-      type: object
-      properties:
-        status:
-          type: string
-          enum: [open, in_progress, resolved, delayed, closed]
-      required: [status]
-
-    TrackedGroup:
-      type: object
-      properties:
-        id:
-          type: integer
-        name:
-          type: string
-        group_id:
-          type: string
-          description: WhatsApp JID (e.g. 120363012345678901@g.us)
-        description:
-          type: string
-          nullable: true
-        enabled:
-          type: boolean
-        message_count:
-          type: integer
-        created_at:
-          type: string
-      required: [id, name, group_id, enabled, message_count, created_at]
-
-    TrackedGroupInput:
-      type: object
-      properties:
-        name:
-          type: string
-        group_id:
-          type: string
-        description:
-          type: string
-          nullable: true
-      required: [name, group_id]
-
-    TrackedContact:
-      type: object
-      properties:
-        id:
-          type: integer
-        name:
-          type: string
-        phone:
-          type: string
-          description: Phone in E.164 format (e.g. +971501234567)
-        description:
-          type: string
-          nullable: true
-        enabled:
-          type: boolean
-        message_count:
-          type: integer
-        created_at:
-          type: string
-      required: [id, name, phone, enabled, message_count, created_at]
-
-    RawMessage:
-      type: object
-      properties:
-        id:
-          type: integer
-        text:
-          type: string
-        sender:
-          type: string
-        group_name:
-          type: string
-          nullable: true
-        category:
-          type: string
-          nullable: true
-        priority:
-          type: string
-          nullable: true
-        is_complaint:
-          type: boolean
-          nullable: true
-        confidence:
-          type: string
-          nullable: true
-        media:
-          $ref: "#/components/schemas/RawMessageMedia"
-          nullable: true
-        timestamp:
-          type: string
-      required: [id, text, sender, timestamp]
-
-    RawMessageMedia:
-      type: object
-      properties:
-        type:
-          type: string
-          enum: [image, video, audio, document, sticker, unknown]
-        mimetype:
-          type: string
-          nullable: true
-        file_name:
-          type: string
-          nullable: true
-        caption:
-          type: string
-          nullable: true
-        url:
-          type: string
-          nullable: true
-        data_url:
-          type: string
-          nullable: true
-        seconds:
-          type: integer
-          nullable: true
-        file_size:
-          type: integer
-          nullable: true
-      required: [type]
-
-    TrackedContactInput:
-      type: object
-      properties:
-        name:
-          type: string
-        phone:
-          type: string
-        description:
-          type: string
-          nullable: true
-      required: [name, phone]
-
-    TrackedItemPatch:
-      type: object
-      properties:
-        enabled:
-          type: boolean
-        name:
-          type: string
-        description:
-          type: string
-          nullable: true
-
-    DeletedResponse:
-      type: object
-      properties:
-        deleted:
-          type: boolean
-        id:
-          type: integer
-      required: [deleted, id]
-
-    AiChatRequest:
-      type: object
-      properties:
-        conversation_id:
-          type: integer
-          description: Existing conversation to append to
-        message:
-          type: string
-          description: User prompt text
-        system_prompt:
-          type: string
-          nullable: true
-          description: Optional system prompt override
-      required: [conversation_id, message]
-
-    AiConversation:
-      type: object
-      properties:
-        id:
-          type: integer
-        title:
-          type: string
-        created_at:
-          type: string
-        updated_at:
-          type: string
-          nullable: true
-      required: [id, title, created_at]
-
-    AiConversationInput:
-      type: object
-      properties:
-        title:
-          type: string
-      required: [title]
-
-    AiMessage:
-      type: object
-      properties:
-        id:
-          type: integer
-        conversation_id:
-          type: integer
-        role:
-          type: string
-          enum: [user, assistant, system]
-        content:
-          type: string
-        created_at:
-          type: string
-      required: [id, conversation_id, role, content, created_at]
-
     SuccessResponse:
       type: object
       properties:
         success:
           type: boolean
+        message:
+          type: string
       required: [success]
-
-    WhatsappQrResponse:
-      type: object
-      properties:
-        qr_data_url:
-          type: string
-          description: Base64 PNG data URL of the QR code
-        expires_in:
-          type: integer
-          description: Seconds until the QR code expires
-        status:
-          type: string
-          enum: [disconnected, waiting_scan, connected]
-        pairing_token:
-          type: string
-      required: [qr_data_url, expires_in, status, pairing_token]
-
-    WhatsappConnectStatus:
-      type: object
-      properties:
-        connected:
-          type: boolean
-        state:
-          type: string
-          enum: [disconnected, waiting_scan, connected]
-        instance:
-          type: string
-        phone:
-          type: string
-          nullable: true
-        connected_at:
-          type: string
-          nullable: true
-        api_url:
-          type: string
-      required: [connected, state, instance, api_url]
-
-    TelegramStatus:
-      type: object
-      properties:
-        connected:
-          type: boolean
-        bot_username:
-          type: string
-          nullable: true
-        bot_name:
-          type: string
-          nullable: true
-        webhook_url:
-          type: string
-          nullable: true
-        configured_at:
-          type: string
-          nullable: true
-      required: [connected]
-
-    TelegramSetupInput:
-      type: object
-      properties:
-        bot_token:
-          type: string
-          description: "Telegram bot token from @BotFather (format: 123456:ABC-DEF...)"
-        webhook_url:
-          type: string
-          nullable: true
-          description: Optional HTTPS webhook URL for receiving updates
-      required: [bot_token]
-
-    TelegramQrResponse:
-      type: object
-      properties:
-        qr_data_url:
-          type: string
-        bot_link:
-          type: string
-        bot_username:
-          type: string
-      required: [qr_data_url, bot_link, bot_username]
 
     ErrorResponse:
       type: object
@@ -1107,21 +314,309 @@ components:
           type: string
       required: [error]
 
-    WhatsappChat:
+    TeamsMessageInput:
+      type: object
+      properties:
+        message:
+          type: string
+          description: The message text
+        sender_id:
+          type: integer
+          description: ID of the employee sending the message (simulating Teams user)
+        channel:
+          type: string
+          description: Teams channel name
+      required: [message, sender_id]
+
+    TeamsWebhookPayload:
+      type: object
+      properties:
+        type:
+          type: string
+        from:
+          type: object
+          properties:
+            id:
+              type: string
+            name:
+              type: string
+          required: [id, name]
+        text:
+          type: string
+        channelData:
+          type: object
+      required: [type, from, text]
+
+    AgentResult:
       type: object
       properties:
         id:
+          type: integer
+        message_text:
           type: string
-          description: WhatsApp JID (e.g. 120363012345678901@g.us)
+        sender_id:
+          type: integer
+        sender_name:
+          type: string
+        channel:
+          type: ["string", "null"]
+        intent:
+          type: string
+          description: "leave_notification | not_leave_related | ambiguous"
+        confidence:
+          type: number
+        agent_output:
+          $ref: "#/components/schemas/AgentOutput"
+        action_taken:
+          type: string
+          description: "leave_recorded | clarification_requested | ignored | holiday_conflict | unauthorized_poster"
+        clarification_question:
+          type: ["string", "null"]
+        created_at:
+          type: string
+      required: [id, message_text, sender_id, sender_name, intent, confidence, agent_output, action_taken, created_at]
+
+    AgentOutput:
+      type: object
+      properties:
+        intent:
+          type: string
+        confidence:
+          type: number
+        employee:
+          type: object
+          properties:
+            name_extracted:
+              type: string
+            resolved:
+              type: boolean
+            ambiguous:
+              type: boolean
+            candidates:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  full_name:
+                    type: string
+                  department:
+                    type: string
+                required: [id, full_name, department]
+            matched_employee:
+              type: ["object", "null"]
+              properties:
+                id:
+                  type: integer
+                full_name:
+                  type: string
+                department:
+                  type: string
+              required: [id, full_name, department]
+          required: [name_extracted, resolved, ambiguous, candidates]
+        leave_date:
+          type: ["string", "null"]
+        leave_type:
+          type: string
+          description: "full_day | half_day | multiple_days"
+        is_holiday:
+          type: boolean
+        poster:
+          type: object
+          properties:
+            employee_id:
+              type: integer
+            name:
+              type: string
+            is_manager_of_employee:
+              type: boolean
+          required: [employee_id, name, is_manager_of_employee]
+        action:
+          type: string
+        clarification_needed:
+          type: boolean
+        clarification_question:
+          type: ["string", "null"]
+      required: [intent, confidence, employee, leave_type, is_holiday, poster, action, clarification_needed]
+
+    ProcessedMessage:
+      type: object
+      properties:
+        id:
+          type: integer
+        message_text:
+          type: string
+        sender_id:
+          type: integer
+        sender_name:
+          type: string
+        channel:
+          type: ["string", "null"]
+        intent:
+          type: string
+        confidence:
+          type: number
+        action_taken:
+          type: string
+        clarification_question:
+          type: ["string", "null"]
+        agent_output:
+          $ref: "#/components/schemas/AgentOutput"
+        created_at:
+          type: string
+      required: [id, message_text, sender_id, sender_name, intent, confidence, action_taken, agent_output, created_at]
+
+    LeaveRecord:
+      type: object
+      properties:
+        id:
+          type: integer
+        employee_id:
+          type: integer
+        employee_name:
+          type: string
+        department:
+          type: string
+        leave_date:
+          type: string
+        leave_type:
+          type: string
+        status:
+          type: string
+          description: "approved | pending | rejected"
+        approved_by_id:
+          type: ["integer", "null"]
+        approved_by_name:
+          type: ["string", "null"]
+        source_message:
+          type: ["string", "null"]
+        message_log_id:
+          type: ["integer", "null"]
+        created_at:
+          type: string
+      required: [id, employee_id, employee_name, department, leave_date, leave_type, status, created_at]
+
+    LeaveRecordInput:
+      type: object
+      properties:
+        employee_id:
+          type: integer
+        leave_date:
+          type: string
+        leave_type:
+          type: string
+        approved_by_id:
+          type: ["integer", "null"]
+        source_message:
+          type: ["string", "null"]
+      required: [employee_id, leave_date, leave_type]
+
+    LeaveRecordUpdate:
+      type: object
+      properties:
+        leave_date:
+          type: string
+        leave_type:
+          type: string
+        status:
+          type: string
+
+    LeaveStats:
+      type: object
+      properties:
+        total_leaves_this_month:
+          type: integer
+        total_leaves_today:
+          type: integer
+        pending_approvals:
+          type: integer
+        messages_processed_today:
+          type: integer
+        top_departments:
+          type: array
+          items:
+            type: object
+            properties:
+              department:
+                type: string
+              count:
+                type: integer
+            required: [department, count]
+      required: [total_leaves_this_month, total_leaves_today, pending_approvals, messages_processed_today, top_departments]
+
+    Employee:
+      type: object
+      properties:
+        id:
+          type: integer
+        full_name:
+          type: string
+        first_name:
+          type: string
+        last_name:
+          type: string
+        department:
+          type: string
+        role:
+          type: string
+        manager_id:
+          type: ["integer", "null"]
+        manager_name:
+          type: ["string", "null"]
+        teams_user_id:
+          type: string
+        email:
+          type: string
+      required: [id, full_name, first_name, last_name, department, role, teams_user_id, email]
+
+    Holiday:
+      type: object
+      properties:
+        id:
+          type: integer
+        date:
+          type: string
         name:
           type: string
-          nullable: true
-        pushname:
+        type:
           type: string
-          nullable: true
-        unreadCount:
-          type: integer
-        isGroup:
-          type: boolean
-      required: [id]
+          description: "public | optional"
+      required: [id, date, name, type]
 
+    LlmSettings:
+      type: object
+      properties:
+        provider:
+          type: string
+          description: "openai | anthropic | groq | gemini"
+        model:
+          type: string
+        api_key_set:
+          type: boolean
+      required: [provider, model, api_key_set]
+
+    LlmSettingsUpdate:
+      type: object
+      properties:
+        provider:
+          type: string
+        model:
+          type: string
+        api_key:
+          type: ["string", "null"]
+
+    LlmTestResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        provider:
+          type: string
+        model:
+          type: string
+        latency_ms:
+          type: ["integer", "null"]
+      required: [success, message, provider, model]
