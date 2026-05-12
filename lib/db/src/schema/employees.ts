@@ -10,6 +10,7 @@ export const employeesTable = pgTable("employees", {
   department: text("department").notNull(),
   role: text("role").notNull(),
   managerId: integer("manager_id"),
+  orgLevel: text("org_level").notNull().default("individual"),
   teamsUserId: text("teams_user_id").notNull().unique(),
   email: text("email").notNull().unique(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

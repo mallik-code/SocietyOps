@@ -79,10 +79,12 @@ export async function runMigrations(): Promise<void> {
       department    TEXT NOT NULL,
       role          TEXT NOT NULL,
       manager_id    INTEGER,
+      org_level     TEXT NOT NULL DEFAULT 'individual',
       teams_user_id TEXT NOT NULL UNIQUE,
       email         TEXT NOT NULL UNIQUE,
       created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+    ALTER TABLE employees ADD COLUMN IF NOT EXISTS org_level TEXT NOT NULL DEFAULT 'individual';
 
     CREATE TABLE IF NOT EXISTS leave_records (
       id              SERIAL PRIMARY KEY,

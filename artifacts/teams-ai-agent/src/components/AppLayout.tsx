@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, MessageSquare, CalendarClock, Users, Settings } from "lucide-react";
+import { LayoutDashboard, MessageSquare, CalendarClock, Users, Settings, BarChart3 } from "lucide-react";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -10,6 +10,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     { name: "Simulator", href: "/simulator", icon: MessageSquare },
     { name: "Leave Records", href: "/leave", icon: CalendarClock },
     { name: "Employees", href: "/employees", icon: Users },
+    { name: "Reports", href: "/reports", icon: BarChart3 },
     { name: "Settings", href: "/settings", icon: Settings },
   ];
 

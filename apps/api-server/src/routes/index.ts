@@ -12,6 +12,7 @@ import teamsRouter from "./teams";
 import leaveRouter from "./leave";
 import employeesLeaveRouter from "./employees_leave";
 import settingsLlmRouter from "./settings_llm";
+import reportsRouter from "./reports";
 
 const router: IRouter = Router();
 
@@ -28,5 +29,6 @@ router.use(teamsRouter);
 router.use(leaveRouter);
 router.use(employeesLeaveRouter);
 router.use(settingsLlmRouter);
+router.use(reportsRouter);
 
 export default router;

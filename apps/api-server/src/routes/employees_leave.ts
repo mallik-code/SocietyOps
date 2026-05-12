@@ -15,6 +15,7 @@ router.get("/employees", async (req, res): Promise<void> => {
       last_name: emp.lastName,
       department: emp.department,
       role: emp.role,
+      org_level: emp.orgLevel,
       manager_id: emp.managerId || null,
       manager_name: manager?.fullName || null,
       teams_user_id: emp.teamsUserId,
